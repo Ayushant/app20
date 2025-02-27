@@ -6,10 +6,10 @@ const path = require('path');
 
 const app = express()
 app.use(express.json())
-// const sellerRoutes = require('./routes/seller')
+const sellerRoutes = require('./routes/seller')
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // app.use('/api/buyer', buyerRoutes);
-// app.use('/api/seller', sellerRoutes);
+app.use('/api/seller', sellerRoutes);
 
 connectdb()
 
