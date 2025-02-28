@@ -71,8 +71,8 @@ const { generateToken } = require('../config/token');
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
-    const { name, email, password, shopName } = req.body;
-
+    const { name, email, password, shopName, gstNumber } = req.body;
+    console.log(email)
     try {
         const existingSeller = await Seller.findOne({ email });
         if (existingSeller) {
@@ -81,7 +81,7 @@ exports.registerSeller = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const seller = new Seller({ name, email, password: hashedPassword, shopName });
+        const seller = new Seller({ name, email, password: hashedPassword, shopName, gstNumber });
         await seller.save();
 
         const token = generateToken(seller._id, 'seller');
@@ -90,6 +90,7 @@ exports.registerSeller = async (req, res) => {
             name: seller.name,
             email: seller.email,
             shopName: seller.shopName,
+            gstNumber: seller.gstNumber,
             token
         });
     } catch (err) {
@@ -100,10 +101,10 @@ exports.registerSeller = async (req, res) => {
 // Login Seller
 exports.loginSeller = async (req, res) => {
     const { email, password } = req.body;
-
+    console.log(email, password)
     try {
         const seller = await Seller.findOne({ email });
-        if (!seller ) {
+        if (!seller) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
         const isPasswordValid = await bcrypt.compare(password, seller.password);
