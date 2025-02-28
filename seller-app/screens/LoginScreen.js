@@ -2,15 +2,25 @@
 
 import { useState } from "react"
 import { View, TextInput, Button, StyleSheet, Text } from "react-native"
+import axios from "axios"
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
-  const handleLogin = () => {
-    // TODO: Implement login logic
-    console.log("Login:", email, password)
-    navigation.navigate("Home")
+  const handleLogin = async () => {
+    try {
+      console.log("email", email)
+      const response = await axios.post('http://172.31.110.208:8000/api/seller/register', {
+        email,
+        password,
+      });
+      console.log("Login successful:", response.data);
+      navigation.navigate("Home");
+    } catch (error) {
+      console.error("Login error:", error);
+      // Handle error (e.g., show an alert)
+    }
   }
 
   return (
