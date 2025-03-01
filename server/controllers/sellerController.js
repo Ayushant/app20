@@ -68,6 +68,7 @@ const Order = require('../models/orderModel');
 const bcrypt = require('bcryptjs');
 const Seller = require('../models/sellerModel');
 const { generateToken } = require('../config/token');
+const jwt = require('jsonwebtoken');
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
@@ -101,6 +102,7 @@ exports.registerSeller = async (req, res) => {
 // Login Seller
 exports.loginSeller = async (req, res) => {
     const { email, password } = req.body;
+
     console.log(email, password)
     try {
         const seller = await Seller.findOne({ email });
@@ -117,6 +119,7 @@ exports.loginSeller = async (req, res) => {
             name: seller.name,
             email: seller.email,
             shopName: seller.shopName,
+            gstNumber: seller.gstNumber,
             token
         });
     } catch (err) {
@@ -126,10 +129,21 @@ exports.loginSeller = async (req, res) => {
 
 // Upload or add a product
 exports.uploadProduct = async (req, res) => {
-    const { name, description, price, category, sellerId } = req.body;
-    const image = req.file ? req.file.path : null;
-
     try {
+        // Get token from header
+
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ error: 'No token provided' });
+        }
+
+        // Verify token and get sellerId
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
+        const sellerId = decoded.id;
+
+        const { name, description, price, category } = req.body;
+        const image = req.file ? req.file.path : null;
+
         const newProduct = new Product({
             name,
             description,
@@ -138,6 +152,7 @@ exports.uploadProduct = async (req, res) => {
             sellerId,
             image
         });
+
         await newProduct.save();
         res.status(201).json(newProduct);
     } catch (err) {
@@ -164,6 +179,18 @@ exports.updateOrderStatus = async (req, res) => {
     try {
         const order = await Order.findByIdAndUpdate(orderId, { status }, { new: true });
         res.status(200).json(order);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Get seller's products
+exports.getSellerProducts = async (req, res) => {
+    const { sellerId } = req.params;
+
+    try {
+        const products = await Product.find({ sellerId });
+        res.status(200).json(products);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
