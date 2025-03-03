@@ -15,6 +15,11 @@ const HomeScreen = ({ navigation }) => {
                     title="View Products"
                     onPress={() => navigation.navigate('ProductList')}
                 />
+                <Button
+                    title="Order List"
+                    onPress={() => navigation.navigate('OrderList')}
+                />
+                <View style={styles.buttonSpacing} />
             </View>
         </View>
     );

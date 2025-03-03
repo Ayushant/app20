@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { View, TextInput, Button, StyleSheet, Text } from "react-native"
+import { View, TextInput, Button, StyleSheet, Text, Alert } from "react-native"
 import axios from "axios"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("")
@@ -11,15 +12,22 @@ export default function LoginScreen({ navigation }) {
   const handleLogin = async () => {
     try {
       console.log("email", email)
-      const response = await axios.post('http://172.31.110.208:8000/api/seller/register', {
+      const response = await axios.post('http://172.31.110.208:8000/api/seller/login', {
         email,
         password,
       });
-      console.log("Login successful:", response.data);
+
+      // Store seller data
+      await AsyncStorage.setItem('sellerData', JSON.stringify({
+        id: response.data._id,
+        token: response.data.token,
+        name: response.data.name
+      }));
+
       navigation.navigate("Home");
     } catch (error) {
       console.error("Login error:", error);
-      // Handle error (e.g., show an alert)
+      Alert.alert("Error", "Login failed. Please check your credentials.");
     }
   }
 
