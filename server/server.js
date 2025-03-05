@@ -1,7 +1,7 @@
 const express = require("express")
 const mongoose = require('mongoose');
 const connectdb = require("./config/db")
-// const buyerRoutes = require('./routes/buyer')
+const buyerRoutes = require('./routes/buyer')
 const path = require('path');
 const cors = require('cors');
 
@@ -21,7 +21,7 @@ app.get("/", (req, res) => {
 })
 const sellerRoutes = require('./routes/seller')
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// app.use('/api/buyer', buyerRoutes);
+app.use('/api/buyer', buyerRoutes);
 app.use('/api/seller', sellerRoutes);
 
 connectdb()
