@@ -31,12 +31,15 @@
 exports.editProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, price } = req.body;
+        const { name, price, description, category, isGeneral } = req.body;
 
         // Create update object
         const updateData = {
             name,
-            price
+            price,
+            description,
+            category,
+            isGeneral: isGeneral === 'true' || isGeneral === true
         };
 
         // If a new image is uploaded, add it to the update data
@@ -251,7 +254,7 @@ exports.uploadProduct = async (req, res) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
         const sellerId = decoded.id;
 
-        const { name, description, price, category } = req.body;
+        const { name, description, price, category, isGeneral } = req.body;
         const image = req.file ? req.file.path : null;
 
         const newProduct = new Product({
@@ -260,7 +263,8 @@ exports.uploadProduct = async (req, res) => {
             price,
             category,
             sellerId,
-            image
+            image,
+            isGeneral: isGeneral === 'true' || isGeneral === true
         });
 
         await newProduct.save();
