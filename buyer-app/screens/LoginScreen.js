@@ -11,7 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [otp, setOtp] = useState('');
     const [otpSent, setOtpSent] = useState(false);
@@ -59,18 +59,28 @@ export default function LoginScreen({ navigation }) {
 
         try {
             setLoading(true);
-            const response = await axios.post('http://172.31.110.208:8000/api/buyer/verify-otp', {
+            const response = await axios.post('http://172.31.41.234:8000/api/buyer/verify-otp', {
                 phoneNumber: '+91' + phoneNumber,
                 otp
             });
 
             await AsyncStorage.setItem('userData', JSON.stringify(response.data));
-            navigation.replace('Home');
+            handleSuccessfulLogin();
         } catch (error) {
             console.error('Error:', error);
             Alert.alert('Error', 'Invalid OTP');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSuccessfulLogin = () => {
+        if (route.params?.returnScreen) {
+            navigation.replace(route.params.returnScreen, {
+                productId: route.params.productId
+            });
+        } else {
+            navigation.replace('Home');
         }
     };
 

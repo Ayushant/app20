@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, TextInput, Button, Image, StyleSheet, Alert, Text } from "react-native"
+import { View, TextInput, Button, Image, StyleSheet, Alert, Text, Switch } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -12,6 +12,7 @@ export default function AddEditProductScreen({ route, navigation }) {
   const [image, setImage] = useState(null)
   const [imageChanged, setImageChanged] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isGeneral, setIsGeneral] = useState(false)
   const { product, onProductUpdate } = route.params || {}
   const [token, setToken] = useState(null)
 
@@ -19,9 +20,10 @@ export default function AddEditProductScreen({ route, navigation }) {
     if (product) {
       setName(product.name)
       setPrice(product.price.toString())
+      setIsGeneral(product.isGeneral || false)
       // Set image if available
       if (product.image) {
-        setImage(`http://172.31.110.208:8000/${product.image}`)
+        setImage(`http://172.31.41.234:8000/${product.image}`)
       }
     }
     loadToken()
@@ -70,6 +72,7 @@ export default function AddEditProductScreen({ route, navigation }) {
       const formData = new FormData()
       formData.append("name", name)
       formData.append("price", price)
+      formData.append("isGeneral", isGeneral.toString())
 
       // Only append image if it's a new image or has been changed
       if (imageChanged && image) {
@@ -86,8 +89,8 @@ export default function AddEditProductScreen({ route, navigation }) {
       }
 
       const url = product
-        ? `http://172.31.110.208:8000/api/seller/edit-product/${product._id}`
-        : 'http://172.31.110.208:8000/api/seller/upload-product'
+        ? `http://172.31.41.234:8000/api/seller/edit-product/${product._id}`
+        : 'http://172.31.41.234:8000/api/seller/upload-product'
 
       const response = await axios({
         method: product ? 'put' : 'post',
@@ -141,6 +144,22 @@ export default function AddEditProductScreen({ route, navigation }) {
         keyboardType="numeric"
       />
 
+      <View style={styles.switchContainer}>
+        <Text style={styles.switchLabel}>Is General Medicine</Text>
+        <Switch
+          value={isGeneral}
+          onValueChange={setIsGeneral}
+          trackColor={{ false: '#767577', true: '#81b0ff' }}
+          thumbColor={isGeneral ? '#4CAF50' : '#f4f3f4'}
+        />
+      </View>
+      <Text style={[styles.helperText, { color: isGeneral ? '#4CAF50' : '#ff6b6b' }]}>
+        {isGeneral 
+          ? 'No prescription required for purchase' 
+          : 'Prescription will be required for purchase'
+        }
+      </Text>
+
       <Button
         title={image ? "Change Image" : "Add Image"}
         onPress={pickImage}
@@ -188,6 +207,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 8,
     borderRadius: 5,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    padding: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 5,
+  },
+  switchLabel: {
+    fontSize: 16,
+    color: '#333',
+  },
+  helperText: {
+    fontSize: 14,
+    marginBottom: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   imageContainer: {
     alignItems: 'center',
