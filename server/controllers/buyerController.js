@@ -2,10 +2,16 @@ const Product = require('../models/productModel');
 const Order = require('../models/orderModel');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
-const twilio = require('twilio');
+const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 
-// Initialize Twilio client
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+// Initialize AWS SNS client
+const snsClient = new SNSClient({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
 
 // Generate OTP
 const generateOTP = () => {
@@ -18,31 +24,58 @@ const otpStore = new Map();
 // Fetch products
 exports.getProducts = async (req, res) => {
     try {
-        const products = await Product.find();
+        const products = await Product.find()
+            .populate('sellerId', 'shopName')
+            .sort({ createdAt: -1 }); // Get newest products first
         res.status(200).json(products);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
-// Place an order
+// Place order
 exports.placeOrder = async (req, res) => {
-    const { buyerId, sellerId, products, prescription, totalPrice, address, contactNumber } = req.body;
-
     try {
+        const { items, totalPrice, deliveryCharge, platformFee, address } = req.body;
+        const prescription = req.file ? req.file.path : null;
+        
+        // Validate if user is authenticated
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        // Check if any product requires prescription
+        const requiresPrescription = items.some(item => !item.isGeneral);
+        if (requiresPrescription && !prescription) {
+            return res.status(400).json({ 
+                error: 'Prescription is required for some medicines' 
+            });
+        }
+
+        // Create new order
         const newOrder = new Order({
-            buyerId,
-            sellerId,
-            products,
+            buyerId: req.user.id,
+            products: items.map(item => ({
+                productId: item._id,
+                quantity: item.quantity,
+                requiresPrescription: !item.isGeneral
+            })),
             prescription,
             totalPrice,
+            deliveryCharge,
+            platformFee,
             address,
-            contactNumber
+            contactNumber: req.user.phoneNumber,
+            status: 'pending'
         });
+
         await newOrder.save();
+
+        // Clear cart from AsyncStorage is handled on client side
         res.status(201).json(newOrder);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        console.error('Order placement error:', error);
+        res.status(500).json({ error: 'Failed to place order' });
     }
 };
 
@@ -69,12 +102,28 @@ exports.sendOTP = async (req, res) => {
             expiryTime: Date.now() + 5 * 60 * 1000
         });
 
-        // Send OTP via Twilio
-        await client.messages.create({
-            body: `Your FairPlace-Med verification code is: ${otp}`,
-            to: phoneNumber,
-            from: process.env.TWILIO_PHONE_NUMBER
-        });
+        // Send OTP via AWS SNS
+        const params = {
+            Message: `Your FairPlace-Med verification code is: ${otp}`,
+            PhoneNumber: phoneNumber,
+            MessageAttributes: {
+                'AWS.SNS.SMS.SenderID': {
+                    DataType: 'String',
+                    StringValue: 'FairPlace'
+                },
+                'AWS.SNS.SMS.SMSType': {
+                    DataType: 'String',
+                    StringValue: 'Transactional'
+                }
+            }
+        };
+
+        try {
+            await snsClient.send(new PublishCommand(params));
+        } catch (snsError) {
+            console.error('SNS Error:', snsError);
+            return res.status(500).json({ error: 'Failed to send OTP' });
+        }
 
         // Check if user exists
         const userExists = await User.findOne({ phoneNumber });
@@ -185,6 +234,29 @@ exports.getNearbyProducts = async (req, res) => {
             .populate('sellerId', 'name shopName location');
 
         res.status(200).json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get all products
+exports.getAllProducts = async (req, res) => {
+    try {
+        const products = await Product.find()
+            .populate('sellerId', 'shopName');
+        res.status(200).json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Get user's orders
+exports.getOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ buyerId: req.user.id })
+            .populate('products.productId')
+            .sort({ createdAt: -1 });
+        res.status(200).json(orders);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
