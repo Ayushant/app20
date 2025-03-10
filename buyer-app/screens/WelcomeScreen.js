@@ -15,28 +15,16 @@ export default function WelcomeScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
-                {/* <Image
-                    source={require('../assets/icon.png')}
-                    style={styles.icon}
-                    resizeMode="contain"
-                /> */}
                 <Text style={styles.title}>Welcome to FairPlace-Med</Text>
                 <Text style={styles.subtitle}>Find medicines from nearby stores</Text>
             </View>
 
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
-                    style={[styles.button, styles.loginButton]}
-                    onPress={() => navigation.navigate('Login')}
+                    style={[styles.button, styles.authButton]}
+                    onPress={() => navigation.navigate('Auth')}
                 >
-                    <Text style={styles.buttonText}>Login</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.button, styles.registerButton]}
-                    onPress={() => navigation.navigate('Register')}
-                >
-                    <Text style={styles.buttonText}>Register</Text>
+                    <Text style={styles.buttonText}>Continue with Phone</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -100,11 +88,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     buttonText: {
-        color: '#fff',
+        color: '#666',
         fontSize: 16,
         fontWeight: '600',
     },
     skipButtonText: {
         color: '#666',
     },
-}); 
+});
