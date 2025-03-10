@@ -12,16 +12,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-// import { API_URL } from '../config';
+import { API_URL } from '../config';
 
-API_URL='http://172.31.41.234:8000/api/'
+// API_URL='http://172.31.41.234:8000/api/'
 
 const CartScreen = ({ navigation }) => {
   const [cartItems, setCartItems] = useState([]);
   const [prescription, setPrescription] = useState(null);
   const [totalPrice, setTotalPrice] = useState(0);
+  // if want to remove the delivery charge and platform fee
   const [deliveryCharge] = useState(25);
   const [platformFee] = useState(10);
+
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -86,6 +88,7 @@ const CartScreen = ({ navigation }) => {
       const userData = JSON.parse(userDataString);
       const requiresPrescription = cartItems.some(item => !item.isGeneral);
       
+      // handling prescription
       if (requiresPrescription && !prescription) {
         Alert.alert('Prescription Required', 'Please upload prescription for prescribed medicines');
         return;
@@ -233,6 +236,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    marginTop: 50, // Add top margin
   },
   cartItem: {
     flexDirection: 'row',
@@ -342,4 +346,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CartScreen; 
+export default CartScreen;
