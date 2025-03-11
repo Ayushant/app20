@@ -6,7 +6,7 @@ const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 
 // Initialize AWS SNS client
 const snsClient = new SNSClient({
-    region: process.env.AWS_REGION,
+    region: 'ap-south-1',  // AWS Mumbai region for India
     credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
@@ -72,6 +72,19 @@ exports.placeOrder = async (req, res) => {
         await newOrder.save();
 
         // Clear cart from AsyncStorage is handled on client side
+        // After order is created, send notification to seller
+        const sellerOrder = await Order.findById(newOrder._id)
+            .populate('buyerId', 'name')
+            .populate('products.productId');
+
+        // Emit notification event
+        global.io.to(`seller_${newOrder.sellerId}`).emit('newOrder', {
+            orderId: newOrder._id,
+            buyerName: sellerOrder.buyerId.name,
+            totalPrice: newOrder.totalPrice,
+            products: sellerOrder.products
+        });
+
         res.status(201).json(newOrder);
     } catch (error) {
         console.error('Order placement error:', error);
@@ -92,49 +105,58 @@ exports.uploadPrescription = (req, res) => {
 exports.sendOTP = async (req, res) => {
     try {
         const { phoneNumber } = req.body;
+        
+        if (!phoneNumber || phoneNumber.length !== 13) { // +91 + 10 digits
+            return res.status(400).json({ error: 'Invalid phone number format' });
+        }
 
         // Generate OTP
         const otp = generateOTP();
-
-        // Store OTP with phone number (with 5 minutes expiry)
+        
+        // Store OTP with phone number
         otpStore.set(phoneNumber, {
             otp,
             expiryTime: Date.now() + 5 * 60 * 1000
         });
 
-        // Send OTP via AWS SNS
+        // Prepare SNS message
         const params = {
             Message: `Your FairPlace-Med verification code is: ${otp}`,
             PhoneNumber: phoneNumber,
             MessageAttributes: {
-                'AWS.SNS.SMS.SenderID': {
-                    DataType: 'String',
-                    StringValue: 'FairPlace'
-                },
                 'AWS.SNS.SMS.SMSType': {
                     DataType: 'String',
                     StringValue: 'Transactional'
                 }
             }
         };
+        
 
+        // Send SMS
         try {
-            await snsClient.send(new PublishCommand(params));
+            console.log('Sending SMS with params:', params);
+            const result = await snsClient.send(new PublishCommand(params));
+            console.log('SMS sent successfully:', result);
+            
+            // Check if user exists
+            const userExists = await User.findOne({ phoneNumber });
+            
+            res.status(200).json({
+                message: 'OTP sent successfully',
+                isExistingUser: !!userExists,
+                // For development only, remove in production
+                otp: process.env.NODE_ENV === 'development' ? otp : undefined
+            });
         } catch (snsError) {
             console.error('SNS Error:', snsError);
-            return res.status(500).json({ error: 'Failed to send OTP' });
+            throw new Error(`Failed to send SMS: ${snsError.message}`);
         }
-
-        // Check if user exists
-        const userExists = await User.findOne({ phoneNumber });
-
-        res.status(200).json({
-            message: 'OTP sent successfully',
-            isExistingUser: !!userExists
-        });
     } catch (error) {
-        console.error('Error sending OTP:', error);
-        res.status(500).json({ error: 'Failed to send OTP' });
+        console.error('Error in sendOTP:', error);
+        res.status(500).json({ 
+            error: 'Failed to send OTP',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 };
 
@@ -152,14 +174,19 @@ exports.verifyOTP = async (req, res) => {
         // Clear OTP from store
         otpStore.delete(phoneNumber);
 
-        // Find or create user
+        // Find or create user with default location
         let user = await User.findOne({ phoneNumber });
         if (!user && name) {
             // Create new user if doesn't exist and name is provided
             user = new User({
                 name,
                 phoneNumber,
-                isVerified: true
+                isVerified: true,
+                location: {
+                    type: 'Point',
+                    coordinates: [0, 0], // Default coordinates
+                    address: 'Not set' // Default address
+                }
             });
         } else if (!user && !name) {
             return res.status(400).json({ error: 'Name is required for registration' });
