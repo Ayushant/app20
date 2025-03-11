@@ -1,4 +1,7 @@
-const express = require("express")
+const express = require('express');
+
+
+
 const mongoose = require('mongoose');
 const connectdb = require("./config/db")
 const buyerRoutes = require('./routes/buyer')
@@ -7,6 +10,18 @@ const cors = require('cors');
 
 
 const app = express()
+
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+
+global.io = io;
+
+io.on('connection', (socket) => {
+    socket.on('joinSellerRoom', (sellerId) => {
+        socket.join(`seller_${sellerId}`);
+    });
+});
+
 
 // app.use(cors());
 app.use(cors({
