@@ -6,7 +6,11 @@ import {
     StyleSheet,
     Text,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    TouchableWithoutFeedback,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -21,28 +25,38 @@ export default function AuthScreen({ navigation, route }) {
     const [loading, setLoading] = useState(false);
 
     const handleSendOTP = async () => {
-        if (!phoneNumber || phoneNumber.length < 10) {
-            Alert.alert('Error', 'Please enter a valid phone number');
+        if (!phoneNumber || phoneNumber.length !== 10) {
+            Alert.alert('Error', 'Please enter a valid 10-digit phone number');
             return;
         }
 
         try {
             setLoading(true);
+            const formattedPhone = '+91' + phoneNumber;
+            console.log('Sending OTP to:', formattedPhone);
+            
             const response = await axios.post(`${API_URL}/buyer/send-otp`, {
-                phoneNumber: '+91' + phoneNumber
+                phoneNumber: formattedPhone
             });
 
+            console.log('OTP Response:', response.data);
+
             setIsExistingUser(response.data.isExistingUser);
-            if (!response.data.isExistingUser && !name.trim()) {
-                Alert.alert('Error', 'Please enter your name to register');
-                return;
-            }
+            
+            // Move name validation here before setting otpSent
+            // if (!response.data.isExistingUser) {
+            //     if (!name.trim()) {
+            //         Alert.alert('Error', 'Please enter your name to register');
+            //         setLoading(false);
+            //         return;
+            //     }
+            // }
 
             setOtpSent(true);
             Alert.alert('Success', 'OTP sent successfully');
         } catch (error) {
-            console.error('Error:', error);
-            Alert.alert('Error', 'Failed to send OTP');
+            console.error('Error sending OTP:', error.response?.data || error.message);
+            Alert.alert('Error', 'Failed to send OTP. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -79,65 +93,85 @@ export default function AuthScreen({ navigation, route }) {
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Welcome to FairPlace-Med</Text>
-            {!otpSent ? (
-                <>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Full Name"
-                        value={name}
-                        onChangeText={setName}
-                    />
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.prefix}>+91</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Phone Number"
-                            value={phoneNumber}
-                            onChangeText={setPhoneNumber}
-                            keyboardType="phone-pad"
-                            maxLength={10}
-                        />
-                    </View>
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.disabledButton]}
-                        onPress={handleSendOTP}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.buttonText}>Send OTP</Text>
-                        )}
-                    </TouchableOpacity>
-                </>
-            ) : (
-                <>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Enter OTP"
-                        value={otp}
-                        onChangeText={setOtp}
-                        keyboardType="numeric"
-                        maxLength={6}
-                    />
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.disabledButton]}
-                        onPress={handleVerifyOTP}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.buttonText}>
-                                {isExistingUser ? 'Login' : 'Register'}
-                            </Text>
-                        )}
-                    </TouchableOpacity>
-                </>
-            )}
-        </View>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.container}
+            >
+                <View style={styles.innerContainer}>
+                    <Text style={styles.title}>Welcome to FairPlace-Med</Text>
+                    {!otpSent ? (
+                        <>
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.prefix}>+91</Text>
+                                <TextInput
+                                    style={[styles.phoneInput]}
+                                    placeholder="Phone Number"
+                                    value={phoneNumber}
+                                    onChangeText={setPhoneNumber}
+                                    keyboardType="phone-pad"
+                                    maxLength={10}
+                                />
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.button, loading && styles.disabledButton]}
+                                onPress={handleSendOTP}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.buttonText}>Send OTP</Text>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
+                            {!isExistingUser && (
+                                <View style={styles.inputContainer}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Full Name"
+                                        value={name}
+                                        onChangeText={setName}
+                                    />
+                                </View>
+                            )}
+                            <View style={styles.inputContainer}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter OTP"
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="numeric"
+                                    maxLength={6}
+                                />
+                            </View>
+                            <TouchableOpacity
+                                style={[styles.button, loading && styles.disabledButton]}
+                                onPress={() => {
+                                    if (!isExistingUser && !name.trim()) {
+                                        Alert.alert('Error', 'Please enter your name to register');
+                                        return;
+                                    }
+                                    Keyboard.dismiss();
+                                    handleVerifyOTP();
+                                }}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.buttonText}>
+                                        {isExistingUser ? 'Login' : 'Register'}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
     );
 }
 
