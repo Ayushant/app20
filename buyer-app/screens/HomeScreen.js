@@ -132,12 +132,27 @@ const HomeScreen = ({ navigation }) => {
                         </View>
                     </View>
                 </View>
-                <TouchableOpacity 
-                    style={styles.cartButton}
-                    onPress={() => navigation.navigate('Cart')}
-                >
-                    <Ionicons name="cart-outline" size={24} color="#34C759" />
-                </TouchableOpacity>
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity 
+                        style={styles.headerButton}
+                        onPress={() => navigation.navigate('Orders')}
+                    >
+                        <Ionicons name="document-text-outline" size={24} color="#007AFF" />
+                        <Text style={styles.headerButtonText}>Orders</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.headerButton}
+                        onPress={() => navigation.navigate('Cart')}
+                    >
+                        <Ionicons name="cart-outline" size={24} color="#007AFF" />
+                        {cartItems.length > 0 && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{cartItems.length}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     };
@@ -304,6 +319,31 @@ const HomeScreen = ({ navigation }) => {
             fontSize: 14,
             fontWeight: '600',
         },
+        headerButtons: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        headerButton: {
+            marginLeft: 15,
+            alignItems: 'center',
+        },
+        headerButtonText: {
+            fontSize: 12,
+            color: '#007AFF',
+            marginTop: 2,
+        },
+        badge: {
+            backgroundColor: '#ff6b6b',
+            borderRadius: 12,
+            paddingHorizontal: 2,
+            paddingVertical: 1,
+            marginLeft: 5,
+        },
+        badgeText: {
+            fontSize: 12,
+            fontWeight: '600',
+            color: '#fff',
+        },
     });
 
     const renderProductItem = ({ item }) => (
@@ -383,167 +423,5 @@ const HomeScreen = ({ navigation }) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    header: {
-        padding: 16,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    profileSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    profileImage: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 12,
-    },
-    headerRight: {
-        flex: 1,
-    },
-    welcomeText: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    addressButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    addressText: {
-        flex: 1,
-        fontSize: 14,
-        color: '#666',
-        marginHorizontal: 4,
-    },
-    searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        margin: 16,
-        padding: 12,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 8,
-    },
-    searchPlaceholder: {
-        marginLeft: 8,
-        color: '#666',
-        fontSize: 16,
-    },
-    banner: {
-        width: width - 32,
-        height: 150,
-        marginHorizontal: 16,
-        marginBottom: 20,
-        borderRadius: 8,
-        overflow: 'hidden',
-    },
-    bannerImage: {
-        width: '100%',
-        height: '100%',
-    },
-    productList: {
-        paddingBottom: 20,
-    },
-    productRow: {
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-    },
-    productCard: {
-        width: (width - 40) / 2,
-        marginBottom: 16,
-        borderRadius: 8,
-        backgroundColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    productImage: {
-        width: '100%',
-        height: 150,
-        borderTopLeftRadius: 8,
-        borderTopRightRadius: 8,
-    },
-    productInfo: {
-        padding: 12,
-    },
-    productName: {
-        fontSize: 14,
-        fontWeight: '500',
-        marginBottom: 4,
-    },
-    shopName: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 4,
-    },
-    productPrice: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#007AFF',
-    },
-    prescriptionRequired: {
-        fontSize: 12,
-        color: '#ff6b6b',
-        marginTop: 4,
-    },
-    authButtons: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 10,
-        gap: 15,
-    },
-    loginButton: {
-        backgroundColor: '#007AFF',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 8,
-        minWidth: 100,
-        alignItems: 'center',
-    },
-    registerButton: {
-        backgroundColor: '#34C759',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 8,
-        minWidth: 100,
-        alignItems: 'center',
-    },
-    loginButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    registerButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    addToCartButton: {
-        backgroundColor: '#007AFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    addToCartButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-});
 
 export default HomeScreen;

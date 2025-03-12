@@ -6,7 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Image
+  Image,
+  Modal,
+  TextInput,
+  TouchableWithoutFeedback,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +24,72 @@ import { updateQuantity, clearCart } from '../store/slices/cartSlice';
 
 // API_URL='http://172.31.41.234:8000/api/'
 
+const AddressModal = ({ visible, onClose, onSubmit }) => {
+  const [address, setAddress] = useState('');
+  const [name, setName] = useState('');
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={true}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Delivery Details</Text>
+              
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Full Name"
+                value={name}
+                onChangeText={setName}
+                returnKeyType="next"
+              />
+              
+              <TextInput
+                style={[styles.modalInput, { height: 100, textAlignVertical: 'top' }]}
+                placeholder="Delivery Address"
+                value={address}
+                onChangeText={setAddress}
+                multiline
+                numberOfLines={4}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.cancelButton]} 
+                  onPress={onClose}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton, 
+                    styles.confirmButton,
+                    (!name.trim() || !address.trim()) && styles.disabledConfirmButton
+                  ]}
+                  onPress={() => onSubmit({ name, address })}
+                  disabled={!name.trim() || !address.trim()}
+                >
+                  <Text style={styles.buttonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
+
 const CartScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const cartItems = useSelector(state => state.cart.items);
@@ -28,6 +100,7 @@ const CartScreen = ({ navigation }) => {
   const [platformFee] = useState(10);
 
   const [loading, setLoading] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
 
   useEffect(() => {
     calculateTotal();
@@ -59,33 +132,49 @@ const CartScreen = ({ navigation }) => {
     try {
       const userDataString = await AsyncStorage.getItem('userData');
       if (!userDataString) {
-        navigation.replace('Login', { returnScreen: 'Cart' });
+        navigation.replace('Auth', { returnScreen: 'Cart' });
         return;
       }
 
-      const userData = JSON.parse(userDataString);
+      // Check if prescription is required but not uploaded
       const requiresPrescription = cartItems.some(item => !item.isGeneral);
-      
-      // handling prescription
       if (requiresPrescription && !prescription) {
-        Alert.alert('Prescription Required', 'Please upload prescription for prescribed medicines');
+        Alert.alert(
+          'Prescription Required',
+          'Please upload a prescription for prescribed medicines before checkout.'
+        );
         return;
       }
 
+      setShowAddressModal(true);
+    } catch (error) {
+      console.error('Checkout error:', error);
+      Alert.alert('Error', 'Failed to process checkout');
+    }
+  };
+
+  const handleAddressSubmit = async ({ name, address }) => {
+    try {
       setLoading(true);
+      setShowAddressModal(false);
+
+      const userDataString = await AsyncStorage.getItem('userData');
+      const userData = JSON.parse(userDataString);
 
       // Create form data for order
       const formData = new FormData();
-      formData.append('items', JSON.stringify(cartItems));
+      formData.append('items', JSON.stringify(cartItems.map(item => ({
+        ...item,
+        requiresPrescription: !item.isGeneral
+      }))));
       formData.append('totalPrice', totalPrice.toString());
       formData.append('deliveryCharge', deliveryCharge.toString());
       formData.append('platformFee', platformFee.toString());
+      formData.append('address', address);
+      formData.append('name', name);
 
-      // TODO: Handle user address
-      formData.append('address', 'User Address'); // Add actual address handling
-
-      // Append prescription if exists
-      if (prescription) {
+      // Only append prescription if any item requires it
+      if (prescription && cartItems.some(item => !item.isGeneral)) {
         const prescriptionFile = {
           uri: prescription,
           type: 'image/jpeg',
@@ -94,7 +183,6 @@ const CartScreen = ({ navigation }) => {
         formData.append('prescription', prescriptionFile);
       }
 
-      // Place order
       const response = await axios.post(
         `${API_URL}/buyer/order/place`,
         formData,
@@ -106,7 +194,6 @@ const CartScreen = ({ navigation }) => {
         }
       );
 
-      // Clear cart after successful order
       dispatch(clearCart());
 
       Alert.alert(
@@ -114,14 +201,14 @@ const CartScreen = ({ navigation }) => {
         'Order placed successfully',
         [
           {
-            text: 'OK',
+            text: 'View Orders',
             onPress: () => navigation.navigate('Orders')
           }
         ]
       );
     } catch (error) {
-      console.error('Checkout error:', error);
-      Alert.alert('Error', 'Failed to place order. Please try again.');
+      console.error('Order placement error:', error);
+      Alert.alert('Error', 'Failed to place order');
     } finally {
       setLoading(false);
     }
@@ -141,93 +228,107 @@ const CartScreen = ({ navigation }) => {
   );
 
   return (
-    <View style={styles.container}>
-      {cartItems.length === 0 ? (
-        renderEmptyCart()
-      ) : (
-        <>
-          <ScrollView>
-            {/* Cart Items */}
-            {cartItems.map((item, index) => (
-              <View key={index} style={styles.cartItem}>
-                <Image 
-                  source={{ uri: `${API_URL}/${item.image}` }}
-                  style={styles.itemImage}
-                />
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemPrice}>₹{item.price}</Text>
-                  <View style={styles.quantityControl}>
-                    <TouchableOpacity onPress={() => updateItemQuantity(item._id, -1)}>
-                      <Text style={styles.quantityButton}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.quantity}>{item.quantity}</Text>
-                    <TouchableOpacity onPress={() => updateItemQuantity(item._id, 1)}>
-                      <Text style={styles.quantityButton}>+</Text>
-                    </TouchableOpacity>
+    <>
+      <View style={styles.container}>
+        {cartItems.length === 0 ? (
+          renderEmptyCart()
+        ) : (
+          <>
+            <ScrollView>
+              {/* Cart Items */}
+              {cartItems.map((item, index) => (
+                <View key={index} style={styles.cartItem}>
+                  <Image 
+                    source={{ uri: `${API_URL}/${item.image}` }}
+                    style={styles.itemImage}
+                  />
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemPrice}>₹{item.price}</Text>
+                    <View style={styles.quantityControl}>
+                      <TouchableOpacity onPress={() => updateItemQuantity(item._id, -1)}>
+                        <Text style={styles.quantityButton}>-</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.quantity}>{item.quantity}</Text>
+                      <TouchableOpacity onPress={() => updateItemQuantity(item._id, 1)}>
+                        <Text style={styles.quantityButton}>+</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
 
-            {/* Prescription Upload Section */}
-            {cartItems.some(item => !item.isGeneral) && (
-              <View style={styles.prescriptionSection}>
-                <Text style={styles.sectionTitle}>Upload Prescription</Text>
-                <TouchableOpacity 
-                  style={styles.uploadButton}
-                  onPress={pickPrescription}
-                >
-                  <Text style={styles.uploadButtonText}>
-                    {prescription ? 'Change Prescription' : 'Upload Prescription'}
+              {/* Prescription Upload Section */}
+              {cartItems.some(item => !item.isGeneral) && (
+                <View style={styles.prescriptionSection}>
+                  <Text style={styles.sectionTitle}>Upload Prescription</Text>
+                  <TouchableOpacity 
+                    style={styles.uploadButton}
+                    onPress={pickPrescription}
+                  >
+                    <Text style={styles.uploadButtonText}>
+                      {prescription ? 'Change Prescription' : 'Upload Prescription'}
+                    </Text>
+                  </TouchableOpacity>
+                  {prescription && (
+                    <Image 
+                      source={{ uri: prescription }}
+                      style={styles.prescriptionPreview}
+                    />
+                  )}
+                </View>
+              )}
+
+              {/* Price Summary */}
+              <View style={styles.summary}>
+                <View style={styles.summaryRow}>
+                  <Text>Price</Text>
+                  <Text>₹{totalPrice}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text>Delivery Charge</Text>
+                  <Text>₹{deliveryCharge}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text>Platform fee</Text>
+                  <Text>₹{platformFee}</Text>
+                </View>
+                <View style={[styles.summaryRow, styles.totalRow]}>
+                  <Text style={styles.totalText}>Total</Text>
+                  <Text style={styles.totalAmount}>
+                    ₹{totalPrice + deliveryCharge + platformFee}
                   </Text>
-                </TouchableOpacity>
-                {prescription && (
-                  <Image 
-                    source={{ uri: prescription }}
-                    style={styles.prescriptionPreview}
-                  />
-                )}
+                </View>
               </View>
-            )}
+            </ScrollView>
 
-            {/* Price Summary */}
-            <View style={styles.summary}>
-              <View style={styles.summaryRow}>
-                <Text>Price</Text>
-                <Text>₹{totalPrice}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text>Delivery Charge</Text>
-                <Text>₹{deliveryCharge}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text>Platform fee</Text>
-                <Text>₹{platformFee}</Text>
-              </View>
-              <View style={[styles.summaryRow, styles.totalRow]}>
-                <Text style={styles.totalText}>Total</Text>
-                <Text style={styles.totalAmount}>
-                  ₹{totalPrice + deliveryCharge + platformFee}
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
+            {/* Checkout Button */}
+            <TouchableOpacity 
+              style={[styles.checkoutButton, loading && styles.disabledButton]}
+              onPress={handleCheckout}
+              disabled={loading || cartItems.length === 0}
+            >
+              <Text style={styles.checkoutButtonText}>
+                {loading ? 'Processing...' : 'Checkout'}
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
 
-          {/* Checkout Button */}
-          <TouchableOpacity 
-            style={[styles.checkoutButton, loading && styles.disabledButton]}
-            onPress={handleCheckout}
-            disabled={loading || cartItems.length === 0}
-          >
-            <Text style={styles.checkoutButtonText}>
-              {loading ? 'Processing...' : 'Checkout'}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
+      <AddressModal
+        visible={showAddressModal}
+        onClose={() => setShowAddressModal(false)}
+        onSubmit={handleAddressSubmit}
+      />
+    </>
   );
+};
+
+const additionalStyles = {
+  disabledConfirmButton: {
+    backgroundColor: '#a8e6a8',
+  }
 };
 
 const styles = StyleSheet.create({
@@ -365,6 +466,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 8,
+    width: '90%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#ff6b6b',
+  },
+  confirmButton: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  ...additionalStyles
 });
 
 export default CartScreen;
