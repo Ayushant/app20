@@ -8,13 +8,19 @@ import {
     TextInput,
     Image,
     Dimensions,
-    FlatList
+    FlatList,
+    Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { API_URL, BASE_URL } from '../config/api';
+import { useDispatch } from 'react-redux';
+import { addToCart } from '../store/slices/cartSlice';
 
-const API_URL = 'http://172.31.41.234:8000/api';
-const BASE_URL = 'http://172.31.41.234:8000';
+// Remove the old URL constants
+// const API_URL = 'http://172.31.110.208:8000/api';
+// const BASE_URL = 'http://172.31.110.208:8000';
+
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
@@ -22,6 +28,8 @@ const HomeScreen = ({ navigation }) => {
     const [addresses, setAddresses] = useState([]);
     const [selectedAddress, setSelectedAddress] = useState(null);
     const [products, setProducts] = useState([]);
+    const [cartItems, setCartItems] = useState([]);
+    const dispatch = useDispatch();
 
     useEffect(() => {
         checkAuthStatus();
@@ -86,19 +94,231 @@ const HomeScreen = ({ navigation }) => {
         }
     };
 
+    const handleAddToCart = async (product) => {
+        const userDataString = await AsyncStorage.getItem('userData');
+        if (!userDataString) {
+            Alert.alert(
+                'Sign in Required',
+                'Please sign in to add items to cart',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Sign In', onPress: () => navigation.navigate('Login', { returnScreen: 'Home' }) }
+                ]
+            );
+            return;
+        }
+
+        dispatch(addToCart(product));
+        Alert.alert('Success', 'Item added to cart');
+    };
+
+    const renderHeader = () => {
+        return (
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <View style={styles.profileSection}>
+                        <Image
+                            source={require('../assets/default-profile.png')}
+                            style={styles.profileImage}
+                        />
+                        <View style={styles.headerRight}>
+                            <Text style={styles.welcomeText}>Hello, {userData ? userData.name : 'User'}</Text>
+                            <View style={styles.addressButton}>
+                                <Ionicons name="location-outline" size={16} color="#666" />
+                                <Text style={styles.addressText} numberOfLines={1}>
+                                    {selectedAddress?.address || 'Select your location'}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+                <TouchableOpacity 
+                    style={styles.cartButton}
+                    onPress={() => navigation.navigate('Cart')}
+                >
+                    <Ionicons name="cart-outline" size={24} color="#34C759" />
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
+    // Add these new styles
+    const styles = StyleSheet.create({
+        container: {
+            flex: 1,
+            backgroundColor: '#fff',
+            marginTop: 50, // Add top margin
+        },
+        header: {
+            padding: 16,
+            backgroundColor: '#fff',
+            borderBottomWidth: 1,
+            borderBottomColor: '#eee',
+        },
+        profileSection: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        profileImage: {
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            marginRight: 12,
+        },
+        headerRight: {
+            flex: 1,
+        },
+        welcomeText: {
+            fontSize: 16,
+            fontWeight: '600',
+            marginBottom: 4,
+        },
+        addressButton: {
+            flexDirection: 'row',
+            alignItems: 'center',
+        },
+        addressText: {
+            flex: 1,
+            fontSize: 14,
+            color: '#666',
+            marginHorizontal: 4,
+        },
+        searchBar: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            margin: 16,
+            padding: 12,
+            backgroundColor: '#f5f5f5',
+            borderRadius: 8,
+        },
+        searchPlaceholder: {
+            marginLeft: 8,
+            color: '#666',
+            fontSize: 16,
+        },
+        banner: {
+            width: width - 32,
+            height: 150,
+            marginHorizontal: 16,
+            marginBottom: 20,
+            borderRadius: 8,
+            overflow: 'hidden',
+        },
+        bannerImage: {
+            width: '100%',
+            height: '100%',
+        },
+        productList: {
+            paddingBottom: 20,
+        },
+        productRow: {
+            justifyContent: 'space-between',
+            paddingHorizontal: 16,
+        },
+        productCard: {
+            width: (width - 40) / 2,
+            marginBottom: 16,
+            borderRadius: 8,
+            backgroundColor: '#fff',
+            shadowColor: '#000',
+            shadowOffset: {
+                width: 0,
+                height: 2,
+            },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+        },
+        productImage: {
+            width: '100%',
+            height: 150,
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+        },
+        productInfo: {
+            padding: 12,
+        },
+        productName: {
+            fontSize: 14,
+            fontWeight: '500',
+            marginBottom: 4,
+        },
+        shopName: {
+            fontSize: 12,
+            color: '#666',
+            marginBottom: 4,
+        },
+        productPrice: {
+            fontSize: 16,
+            fontWeight: '600',
+            color: '#007AFF',
+        },
+        prescriptionRequired: {
+            fontSize: 12,
+            color: '#ff6b6b',
+            marginTop: 4,
+        },
+        authButtons: {
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingVertical: 10,
+            gap: 15,
+        },
+        loginButton: {
+            backgroundColor: '#007AFF',
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 8,
+            minWidth: 100,
+            alignItems: 'center',
+        },
+        registerButton: {
+            backgroundColor: '#34C759',
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 8,
+            minWidth: 100,
+            alignItems: 'center',
+        },
+        loginButtonText: {
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '600',
+        },
+        registerButtonText: {
+            color: '#fff',
+            fontSize: 16,
+            fontWeight: '600',
+        },
+        addToCartButton: {
+            backgroundColor: '#007AFF',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 8,
+            alignItems: 'center',
+            marginTop: 8,
+        },
+        addToCartButtonText: {
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: '600',
+        },
+    });
+
     const renderProductItem = ({ item }) => (
         <TouchableOpacity 
             style={styles.productCard}
             onPress={async () => {
-                const userDataString = await AsyncStorage.getItem('userData');
-                if (!userDataString) {
-                    navigation.navigate('Login', { 
-                        returnScreen: 'ProductDetails',
-                        productId: item._id 
-                    });
-                } else {
+                // const userDataString = await AsyncStorage.getItem('userData');
+                // if (!userDataString) {
+                //     navigation.navigate('Login', { 
+                //         returnScreen: 'ProductDetails',
+                //         productId: item._id 
+                //     });
+                // } else {
                     navigation.navigate('ProductDetails', { productId: item._id });
-                }
+                // }
             }}
         >
             <Image 
@@ -118,35 +338,19 @@ const HomeScreen = ({ navigation }) => {
                 {!item.isGeneral && (
                     <Text style={styles.prescriptionRequired}>Prescription Required</Text>
                 )}
+                <TouchableOpacity 
+                    style={styles.addToCartButton}
+                    onPress={() => handleAddToCart(item)}
+                >
+                    <Text style={styles.addToCartButtonText}>Add to Cart</Text>
+                </TouchableOpacity>
             </View>
         </TouchableOpacity>
     );
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={handleProfilePress} style={styles.profileSection}>
-                    <Image
-                        source={userData?.profileImage 
-                            ? { uri: userData.profileImage }
-                            : require('../assets/default-profile.png')}
-                        style={styles.profileImage}
-                    />
-                    <View style={styles.headerRight}>
-                        <Text style={styles.welcomeText}>
-                            {userData ? `Hello, ${userData.name}` : 'Welcome Guest'}
-                        </Text>
-                        <TouchableOpacity onPress={handleAddressPress} style={styles.addressButton}>
-                            <Ionicons name="location-outline" size={16} color="#666" />
-                            <Text style={styles.addressText} numberOfLines={1}>
-                                {selectedAddress?.address || 'Add Address'}
-                            </Text>
-                            <Ionicons name="chevron-down" size={16} color="#666" />
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </View>
+            {renderHeader()}
 
             {/* Search Bar */}
             <TouchableOpacity 
@@ -294,6 +498,52 @@ const styles = StyleSheet.create({
         color: '#ff6b6b',
         marginTop: 4,
     },
+    authButtons: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 10,
+        gap: 15,
+    },
+    loginButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        minWidth: 100,
+        alignItems: 'center',
+    },
+    registerButton: {
+        backgroundColor: '#34C759',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+        minWidth: 100,
+        alignItems: 'center',
+    },
+    loginButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    registerButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    addToCartButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    addToCartButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
 });
 
-export default HomeScreen; 
+export default HomeScreen;
