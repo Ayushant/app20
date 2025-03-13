@@ -1,15 +1,18 @@
 "use client"
-import { useState, useEffect } from "react"
-import { View, TextInput, Button, Image, StyleSheet, Text, Alert } from "react-native"
+import React, { useState, useEffect } from 'react'
+import { View, TextInput, Button, Image, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Switch } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
+
+const API_URL = 'http://172.31.41.234:8000/api'  // Replace with your actual API URL
 
 export default function UploadProductScreen({ navigation }) {
     const [name, setName] = useState("")
     const [price, setPrice] = useState("")
     const [description, setDescription] = useState("")
     const [category, setCategory] = useState("")
+    const [isGeneral, setIsGeneral] = useState(false)
     const [image, setImage] = useState(null)
     const [sellerId, setSellerId] = useState(null)
     const [token, setToken] = useState(null)
@@ -49,12 +52,12 @@ export default function UploadProductScreen({ navigation }) {
     }
 
     const handleUpload = async () => {
-        try {
-            if (!name || !price || !category) {
-                Alert.alert("Error", "Please fill all required fields")
-                return
-            }
+        if (!name || !description || !price || !category) {
+            Alert.alert("Error", "Please fill all required fields")
+            return
+        }
 
+        try {
             if (!sellerId) {
                 Alert.alert("Error", "Seller authentication required")
                 return
@@ -65,11 +68,12 @@ export default function UploadProductScreen({ navigation }) {
             formData.append("price", price)
             formData.append("description", description)
             formData.append("category", category)
+            formData.append("isGeneral", isGeneral)
             formData.append("sellerId", sellerId)
 
             if (image) {
                 const imageFileName = image.split('/').pop()
-                const imageType = "image/" + imageFileName.split('.').pop()
+                const imageType = "image/" + (imageFileName.split('.').pop() === 'png' ? 'png' : 'jpeg')
 
                 formData.append("image", {
                     uri: image,
@@ -78,19 +82,26 @@ export default function UploadProductScreen({ navigation }) {
                 })
             }
 
-            const response = await axios.post(
-                'http://172.31.110.208:8000/api/seller/upload-product',
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Authorization': `Bearer ${token}`
-                    },
-                }
-            )
+            const response = await fetch(`${API_URL}/seller/upload-product`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`
+                },
+            })
 
-            Alert.alert("Success", "Product uploaded successfully")
-            navigation.navigate("Home")
+            const data = await response.json()
+            if (response.ok) {
+                Alert.alert("Success", "Product uploaded successfully", [
+                    {
+                        text: 'OK',
+                        onPress: () => navigation.goBack()
+                    }
+                ])
+            } else {
+                Alert.alert("Error", data.error || "Failed to upload product")
+            }
         } catch (error) {
             console.error("Upload error:", error)
             Alert.alert("Error", "Failed to upload product")
@@ -98,68 +109,150 @@ export default function UploadProductScreen({ navigation }) {
     }
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Upload New Product</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Product Name *"
-                value={name}
-                onChangeText={setName}
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Price *"
-                value={price}
-                onChangeText={setPrice}
-                keyboardType="numeric"
-            />
-            <TextInput
-                style={styles.input}
-                placeholder="Category *"
-                value={category}
-                onChangeText={setCategory}
-            />
-            <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Description"
-                value={description}
-                onChangeText={setDescription}
-                multiline
-            />
-            <Button title="Pick an image" onPress={pickImage} />
-            {image && <Image source={{ uri: image }} style={styles.image} />}
-            <Button title="Upload Product" onPress={handleUpload} />
-        </View>
+        <ScrollView style={styles.container}>
+            <View style={styles.form}>
+                <Text style={styles.label}>Medicine Name *</Text>
+                <TextInput
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Enter medicine name"
+                />
+
+                <Text style={styles.label}>Description *</Text>
+                <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Enter medicine description, usage, etc."
+                    multiline
+                    numberOfLines={4}
+                />
+
+                <Text style={styles.label}>Price (₹) *</Text>
+                <TextInput
+                    style={styles.input}
+                    value={price}
+                    onChangeText={setPrice}
+                    placeholder="Enter price"
+                    keyboardType="numeric"
+                />
+
+                <Text style={styles.label}>Category *</Text>
+                <TextInput
+                    style={styles.input}
+                    value={category}
+                    onChangeText={setCategory}
+                    placeholder="e.g., Antibiotics, Pain Relief, etc."
+                />
+
+                <View style={styles.switchContainer}>
+                    <Text style={styles.label}>Is General Medicine</Text>
+                    <Switch
+                        value={isGeneral}
+                        onValueChange={setIsGeneral}
+                        trackColor={{ false: '#767577', true: '#81b0ff' }}
+                        thumbColor={isGeneral ? '#4CAF50' : '#f4f3f4'}
+                    />
+                </View>
+                <Text style={[styles.helperText, { color: isGeneral ? '#4CAF50' : '#ff6b6b' }]}>
+                    {isGeneral 
+                        ? 'No prescription required for purchase' 
+                        : 'Prescription will be required for purchase'
+                    }
+                </Text>
+
+                <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+                    <Text style={styles.imageButtonText}>
+                        {image ? 'Change Medicine Image' : 'Upload Medicine Image'}
+                    </Text>
+                </TouchableOpacity>
+
+                {image && (
+                    <Image source={{ uri: image }} style={styles.previewImage} />
+                )}
+
+                <TouchableOpacity style={styles.uploadButton} onPress={handleUpload}>
+                    <Text style={styles.uploadButtonText}>Upload Medicine</Text>
+                </TouchableOpacity>
+            </View>
+        </ScrollView>
     )
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        backgroundColor: '#fff',
     },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        marginBottom: 20,
+    form: {
+        padding: 20,
+    },
+    label: {
+        fontSize: 16,
+        marginBottom: 5,
+        fontWeight: '600',
+        color: '#333',
     },
     input: {
-        height: 40,
-        borderColor: "gray",
         borderWidth: 1,
-        marginBottom: 12,
-        paddingHorizontal: 8,
+        borderColor: '#ddd',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 15,
+        fontSize: 16,
+        backgroundColor: '#f8f9fa',
     },
     textArea: {
         height: 100,
-        textAlignVertical: "top",
+        textAlignVertical: 'top',
     },
-    image: {
-        width: 200,
+    switchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+        backgroundColor: '#f8f9fa',
+        padding: 12,
+        borderRadius: 8,
+    },
+    helperText: {
+        fontSize: 14,
+        marginBottom: 20,
+        fontStyle: 'italic',
+    },
+    imageButton: {
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginBottom: 15,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderStyle: 'dashed',
+    },
+    imageButtonText: {
+        color: '#007AFF',
+        fontSize: 16,
+    },
+    previewImage: {
+        width: '100%',
         height: 200,
-        resizeMode: "contain",
-        alignSelf: "center",
-        marginVertical: 16,
+        resizeMode: 'cover',
+        marginBottom: 20,
+        borderRadius: 8,
+    },
+    uploadButton: {
+        backgroundColor: '#007AFF',
+        padding: 15,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    uploadButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
     },
 })
 
