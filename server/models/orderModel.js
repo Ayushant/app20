@@ -11,9 +11,14 @@ const orderSchema = new mongoose.Schema({
     prescription: { type: String }, // Required only if any product requires prescription
     status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
     totalPrice: { type: Number, required: true },
+    deliveryCharge: { type: Number, default: 0 },
+    platformFee: { type: Number, default: 0 },
     address: { type: String, required: true },
+    name: { type: String, required: true },
     contactNumber: { type: String, required: true },
-    prescriptionVerified: { type: Boolean, default: false } // New field to track prescription verification
+    prescriptionVerified: { type: Boolean, default: false }, // New field to track prescription verification
+    notificationSent: { type: Boolean, default: false },
+    deliveryStatus: { type: String, enum: ['preparing', 'shipped', 'delivered'], default: 'preparing' }
 }, {
     timestamps: true
 });

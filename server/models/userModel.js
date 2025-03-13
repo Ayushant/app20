@@ -12,9 +12,9 @@ const userSchema = new mongoose.Schema({
         },
         coordinates: {
             type: [Number], // [longitude, latitude]
-            required: true
+            required: false // Changed to false
         },
-        address: { type: String, required: true }
+        address: { type: String, required: false } // Changed to false
     }
 });
 
