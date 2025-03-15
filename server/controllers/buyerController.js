@@ -3,6 +3,7 @@ const Order = require('../models/orderModel');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+const Seller = require('../models/sellerModel');
 
 // Initialize AWS SNS client
 const snsClient = new SNSClient({
@@ -33,10 +34,10 @@ exports.getProducts = async (req, res) => {
     }
 };
 
-// Place order
+// Place a new order
 exports.placeOrder = async (req, res) => {
     try {
-        const { items, totalPrice, deliveryCharge, platformFee, address } = req.body;
+        const { items, totalPrice, deliveryCharge, platformFee, address, name } = req.body;
         const prescription = req.file ? req.file.path : null;
         
         // Validate if user is authenticated
@@ -44,48 +45,79 @@ exports.placeOrder = async (req, res) => {
             return res.status(401).json({ error: 'Authentication required' });
         }
 
+        // Parse items from JSON string
+        const parsedItems = JSON.parse(items);
+        if (!parsedItems || !parsedItems.length) {
+            return res.status(400).json({ error: 'Cart is empty' });
+        }
+
         // Check if any product requires prescription
-        const requiresPrescription = items.some(item => !item.isGeneral);
+        const requiresPrescription = parsedItems.some(item => !item.isGeneral);
         if (requiresPrescription && !prescription) {
             return res.status(400).json({ 
-                error: 'Prescription is required for some medicines' 
+                error: 'Prescription is required for prescribed medicines' 
             });
+        }
+
+        // Get the first product to determine the seller
+        const firstProduct = await Product.findById(parsedItems[0]._id).populate('sellerId');
+        if (!firstProduct) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+        
+        const sellerId = firstProduct.sellerId._id;
+
+        // Verify all products are from the same seller
+        for (const item of parsedItems) {
+            const product = await Product.findById(item._id);
+            if (!product) {
+                return res.status(404).json({ error: `Product with ID ${item._id} not found` });
+            }
+            
+            if (product.sellerId.toString() !== sellerId.toString()) {
+                return res.status(400).json({ 
+                    error: 'All products in an order must be from the same seller' 
+                });
+            }
         }
 
         // Create new order
         const newOrder = new Order({
             buyerId: req.user.id,
-            products: items.map(item => ({
+            sellerId: sellerId,
+            products: parsedItems.map(item => ({
                 productId: item._id,
                 quantity: item.quantity,
                 requiresPrescription: !item.isGeneral
             })),
-            prescription,
-            totalPrice,
-            deliveryCharge,
-            platformFee,
-            address,
+            prescription: prescription,
+            totalPrice: totalPrice,
+            deliveryCharge: deliveryCharge || 0,
+            platformFee: platformFee || 0,
+            address: address,
+            name: name,
             contactNumber: req.user.phoneNumber,
-            status: 'pending'
+            status: 'pending',
+            prescriptionVerified: !requiresPrescription // automatically verify if no prescription needed
         });
 
         await newOrder.save();
 
-        // Clear cart from AsyncStorage is handled on client side
-        // After order is created, send notification to seller
-        const sellerOrder = await Order.findById(newOrder._id)
-            .populate('buyerId', 'name')
-            .populate('products.productId');
+        // Emit notification event to seller if socket.io is available
+        if (global.io) {
+            console.log("Emiting notification ")
+            global.io.to(`seller_${sellerId}`).emit('newOrder', {
+                orderId: newOrder._id,
+                buyerName: name,
+                totalPrice: newOrder.totalPrice,
+                products: parsedItems
+            });
+        }
 
-        // Emit notification event
-        global.io.to(`seller_${newOrder.sellerId}`).emit('newOrder', {
-            orderId: newOrder._id,
-            buyerName: sellerOrder.buyerId.name,
-            totalPrice: newOrder.totalPrice,
-            products: sellerOrder.products
+        res.status(201).json({
+            message: 'Order placed successfully',
+            orderId: newOrder._id
         });
-
-        res.status(201).json(newOrder);
     } catch (error) {
         console.error('Order placement error:', error);
         res.status(500).json({ error: 'Failed to place order' });
@@ -278,13 +310,57 @@ exports.getAllProducts = async (req, res) => {
 };
 
 // Get user's orders
-exports.getOrders = async (req, res) => {
+exports.getUserOrders = async (req, res) => {
     try {
         const orders = await Order.find({ buyerId: req.user.id })
-            .populate('products.productId')
+            .populate({
+                path: 'products.productId',
+                select: 'name price image isGeneral'
+            })
             .sort({ createdAt: -1 });
+
         res.status(200).json(orders);
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error fetching orders:', error);
+        res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+};
+
+// Get order details
+exports.getOrderDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        
+        const order = await Order.findOne({ 
+            _id: orderId,
+            buyerId: req.user.id 
+        }).populate({
+            path: 'products.productId',
+            select: 'name price image isGeneral'
+        }).populate('sellerId', 'shopName address phoneNumber');
+
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        res.status(200).json(order);
+    } catch (error) {
+        console.error('Error fetching order details:', error);
+        res.status(500).json({ error: 'Failed to fetch order details' });
+    }
+};
+
+// Get orders for the buyer
+exports.getOrders = async (req, res) => {
+    try {
+        const orders = await Order.find({ buyerId: req.user._id })
+            .populate('sellerId', 'shopName')
+            .populate('products.productId', 'name price image')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(orders);
+    } catch (error) {
+        console.error('Error fetching orders:', error);
+        res.status(500).json({ error: 'Failed to fetch orders' });
     }
 };

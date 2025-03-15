@@ -172,6 +172,7 @@ const CartScreen = ({ navigation }) => {
       formData.append('platformFee', platformFee.toString());
       formData.append('address', address);
       formData.append('name', name);
+      formData.append('contactNumber', userData.phoneNumber);
 
       // Only append prescription if any item requires it
       if (prescription && cartItems.some(item => !item.isGeneral)) {
