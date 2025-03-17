@@ -7,7 +7,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-  Alert
+  Alert,
+  Image,
+  Modal,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -19,6 +22,7 @@ const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -85,6 +89,49 @@ const OrdersScreen = ({ navigation }) => {
     return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
   };
 
+  const renderPrescriptionImage = (prescription) => {
+    if (!prescription) return null;
+
+    // Get the correct image URL by removing 'uploads/' if it exists in the path
+    const prescriptionPath = prescription.replace('uploads/', '');
+    const imageUrl = `${API_URL}/uploads/prescriptions/${prescriptionPath}`;
+
+    return (
+      <TouchableOpacity
+        onPress={() => setSelectedImage(imageUrl)}
+        style={styles.prescriptionContainer}
+      >
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.prescriptionThumbnail}
+        />
+        <Text style={styles.viewPrescriptionText}>View Prescription</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const ImagePreviewModal = () => (
+    <Modal
+      visible={!!selectedImage}
+      transparent={true}
+      onRequestClose={() => setSelectedImage(null)}
+    >
+      <View style={styles.modalContainer}>
+        <TouchableOpacity 
+          style={styles.closeButton}
+          onPress={() => setSelectedImage(null)}
+        >
+          <Ionicons name="close" size={30} color="white" />
+        </TouchableOpacity>
+        <Image
+          source={{ uri: selectedImage }}
+          style={styles.fullImage}
+          resizeMode="contain"
+        />
+      </View>
+    </Modal>
+  );
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="document-text-outline" size={80} color="#ccc" />
@@ -134,6 +181,10 @@ const OrdersScreen = ({ navigation }) => {
           )}
         </View>
       ))}
+
+      {/* Show prescription if any product required it */}
+      {item.products.some(product => product.requiresPrescription) && 
+        renderPrescriptionImage(item.prescription)}
       
       <View style={styles.orderFooter}>
         <View style={styles.orderDetails}>
@@ -180,6 +231,7 @@ const OrdersScreen = ({ navigation }) => {
         ListEmptyComponent={renderEmptyState}
         contentContainerStyle={orders.length === 0 ? styles.emptyList : styles.listContainer}
       />
+      <ImagePreviewModal />
     </View>
   );
 };
@@ -346,6 +398,40 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  prescriptionContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    padding: 10,
+    borderRadius: 8,
+  },
+  prescriptionThumbnail: {
+    width: 150,
+    height: 150,
+    borderRadius: 8,
+  },
+  viewPrescriptionText: {
+    color: '#1976d2',
+    marginTop: 5,
+    fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.8,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
   },
 });
 
