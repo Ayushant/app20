@@ -249,14 +249,27 @@ exports.verifyOTP = async (req, res) => {
     }
 };
 
+// Update user location
 exports.updateLocation = async (req, res) => {
     try {
-        const { userId } = req.params;
-        const { location } = req.body;
+        const { address, location } = req.body;
 
+        // Validate location data
+        console.log(location)
+        if (!address || !location || !location.coordinates) {
+            return res.status(400).json({ error: 'Invalid location data' });
+        }
+
+        // Update user's location
         const user = await User.findByIdAndUpdate(
-            userId,
-            { location },
+            req.user._id,
+            {
+                location: {
+                    type: 'Point',
+                    coordinates: location.coordinates,
+                    address: address
+                }
+            },
             { new: true }
         );
 
@@ -264,9 +277,13 @@ exports.updateLocation = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.status(200).json({ location: user.location });
+        res.status(200).json({
+            message: 'Location updated successfully',
+            location: user.location
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Error updating location:', error);
+        res.status(500).json({ error: 'Failed to update location' });
     }
 };
 
@@ -301,13 +318,80 @@ exports.getNearbyProducts = async (req, res) => {
 // Get all products
 exports.getAllProducts = async (req, res) => {
     try {
-        const products = await Product.find()
-            .populate('sellerId', 'shopName');
+        const { longitude, latitude } = req.query;
+        
+        // If location is provided, filter by distance
+        if (longitude && latitude) {
+            const maxDistance = 3000; // 3km in meters
+
+            // First find nearby sellers
+            const nearbySellers = await Seller.find({
+                location: {
+                    $near: {
+                        $geometry: {
+                            type: "Point",
+                            coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                        },
+                        $maxDistance: maxDistance
+                    }
+                }
+            });
+
+            // Get products from nearby sellers
+            const products = await Product.find({
+                sellerId: { $in: nearbySellers.map(seller => seller._id) }
+            }).populate({
+                path: 'sellerId',
+                select: 'shopName location'
+            });
+
+            // Calculate distance for each product's seller
+            const productsWithDistance = products.map(product => {
+                const seller = nearbySellers.find(s => s._id.equals(product.sellerId._id));
+                if (seller && seller.location && seller.location.coordinates) {
+                    const [sellerLong, sellerLat] = seller.location.coordinates;
+                    const distance = calculateDistance(
+                        parseFloat(latitude),
+                        parseFloat(longitude),
+                        sellerLat,
+                        sellerLong
+                    );
+                    return {
+                        ...product.toObject(),
+                        distance: Math.round(distance * 10) / 10 // Round to 1 decimal place
+                    };
+                }
+                return product;
+            });
+
+            return res.status(200).json(productsWithDistance);
+        }
+
+        // If no location provided, return all products
+        const products = await Product.find().populate('sellerId', 'shopName');
         res.status(200).json(products);
     } catch (error) {
+        console.error('Error fetching products:', error);
         res.status(500).json({ error: error.message });
     }
 };
+
+// Helper function to calculate distance between two points using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function toRad(degrees) {
+    return degrees * Math.PI / 180;
+}
 
 // Get user's orders
 exports.getUserOrders = async (req, res) => {
