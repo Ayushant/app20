@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, TextInput, Button, Image, StyleSheet, Alert, Text, Switch } from "react-native"
+import { View, TextInput, Button, Image, StyleSheet, Alert, Text, Switch, ScrollView } from "react-native"
 import * as ImagePicker from "expo-image-picker"
 import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { API_URL } from '../config/api'
 
 export default function AddEditProductScreen({ route, navigation }) {
   const [name, setName] = useState("")
@@ -69,10 +70,18 @@ export default function AddEditProductScreen({ route, navigation }) {
         return
       }
 
+      const sellerDataString = await AsyncStorage.getItem('sellerData')
+      if (!sellerDataString) {
+        navigation.replace('Login')
+        return
+      }
+
+      const sellerData = JSON.parse(sellerDataString)
       const formData = new FormData()
       formData.append("name", name)
       formData.append("price", price)
       formData.append("isGeneral", isGeneral.toString())
+      formData.append("sellerId", sellerData.id)
 
       // Only append image if it's a new image or has been changed
       if (imageChanged && image) {
@@ -88,19 +97,20 @@ export default function AddEditProductScreen({ route, navigation }) {
         })
       }
 
-      const url = product
-        ? `http://172.31.41.234:8000/api/seller/edit-product/${product._id}`
-        : 'http://172.31.41.234:8000/api/seller/upload-product'
-
-      const response = await axios({
-        method: product ? 'put' : 'post',
-        url,
-        data: formData,
+      const config = {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        },
-      })
+          'Authorization': `Bearer ${sellerData.token}`
+        }
+      }
+
+      const response = await axios.post(
+        product
+          ? `${API_URL}/seller/edit-product/${product._id}`
+          : `${API_URL}/seller/upload-product`,
+        formData,
+        config
+      )
 
       // Call the refresh callback if provided
       if (onProductUpdate) {
