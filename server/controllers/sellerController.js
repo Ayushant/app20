@@ -109,6 +109,7 @@ exports.registerSeller = async (req, res) => {
             return res.status(400).json({ message: 'Shop location is required' });
         }
 
+        console.log("Loaction :",location)
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -288,24 +289,191 @@ exports.getSellerProducts = async (req, res) => {
 
 // Get orders and respond (accept/reject)
 exports.getOrders = async (req, res) => {
-    const sellerId = req.params.sellerId;
-
     try {
-        const orders = await Order.find({ sellerId }).populate('products.productId');
+        const { sellerId } = req.params;
+        const orders = await Order.find({ sellerId })
+            .populate('buyerId', 'name')
+            .populate('products.productId');
         res.status(200).json(orders);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };
 
 // Accept or reject order
 exports.updateOrderStatus = async (req, res) => {
-    const { orderId, status } = req.body;
-
     try {
-        const order = await Order.findByIdAndUpdate(orderId, { status }, { new: true });
+        const { orderId, action } = req.params;
+        const sellerId = req.seller.id;
+
+        // Validate action
+        if (!['accept', 'reject'].includes(action)) {
+            return res.status(400).json({ error: 'Invalid action. Use "accept" or "reject"' });
+        }
+
+        const order = await Order.findOne({ 
+            _id: orderId,
+            sellerId,
+            status: 'pending'
+        });
+
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found or not pending' });
+        }
+
+        // Update order status
+        order.status = action === 'accept' ? 'accepted' : 'rejected';
+        await order.save();
+
+        // If order is accepted, update total earnings
+        if (action === 'accept') {
+            // You can add additional logic here, like sending notifications
+            // or updating inventory
+        }
+
+        res.status(200).json({
+            message: `Order ${action}ed successfully`,
+            order
+        });
+    } catch (error) {
+        console.error('Error updating order status:', error);
+        res.status(500).json({ error: 'Failed to update order status' });
+    }
+};
+
+// Get seller's orders
+exports.getSellerOrders = async (req, res) => {
+    try {
+        const sellerId = req.seller.id;
+        
+        const orders = await Order.find({ sellerId })
+            .populate({
+                path: 'products.productId',
+                select: 'name price image isGeneral'
+            })
+            .populate('buyerId', 'name phoneNumber')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(orders);
+    } catch (error) {
+        console.error('Error fetching seller orders:', error);
+        res.status(500).json({ error: 'Failed to fetch orders' });
+    }
+};
+
+// Get order details
+exports.getOrderDetails = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const sellerId = req.seller.id;
+        
+        const order = await Order.findOne({ 
+            _id: orderId,
+            sellerId 
+        }).populate({
+            path: 'products.productId',
+            select: 'name price image isGeneral'
+        }).populate('buyerId', 'name phoneNumber');
+
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
         res.status(200).json(order);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    } catch (error) {
+        console.error('Error fetching order details:', error);
+        res.status(500).json({ error: 'Failed to fetch order details' });
+    }
+};
+
+
+
+// Verify prescription
+exports.verifyPrescription = async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { verified } = req.body;
+        const sellerId = req.seller.id;
+
+        const order = await Order.findOne({ _id: orderId, sellerId });
+        
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+
+        // Update prescription verification status
+        order.prescriptionVerified = verified;
+        await order.save();
+
+        res.status(200).json({ 
+            message: `Prescription ${verified ? 'verified' : 'rejected'} successfully`,
+            order 
+        });
+    } catch (error) {
+        console.error('Error verifying prescription:', error);
+        res.status(500).json({ error: 'Failed to verify prescription' });
+    }
+};
+
+// Get dashboard data
+exports.getDashboardData = async (req, res) => {
+    console.log("req.seller",req.seller)
+    try {
+        const sellerId = req.seller.id;
+        console.log("sellerId",sellerId)    
+        
+        // Get seller details
+        const seller = await Seller.findById(sellerId).select('-password');
+        if (!seller) {
+            return res.status(404).json({ error: 'Seller not found' });
+        }
+
+        // Get today's date range
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Get pending orders for today
+        const pendingOrders = await Order.find({
+            sellerId,
+            status: 'pending',
+            createdAt: {
+                $gte: today,
+                $lt: tomorrow
+            }
+        }).populate('buyerId', 'name');
+
+        // Get total earnings (from accepted orders)
+        const totalEarnings = await Order.aggregate([
+            {
+                $match: {
+                    sellerId: seller._id,
+                    status: 'accepted'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$totalPrice' }
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            seller: {
+                name: seller.name,
+                shopName: seller.shopName,
+                email: seller.email
+            },
+            dashboard: {
+                pendingOrders: pendingOrders.length,
+                totalEarnings: totalEarnings[0]?.total || 0,
+                todayOrders: pendingOrders
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard data' });
     }
 };
