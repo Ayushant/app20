@@ -27,6 +27,28 @@ import { updateQuantity, clearCart } from '../store/slices/cartSlice';
 const AddressModal = ({ visible, onClose, onSubmit }) => {
   const [address, setAddress] = useState('');
   const [name, setName] = useState('');
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const userDataString = await AsyncStorage.getItem('userData');
+        if (userDataString) {
+          const data = JSON.parse(userDataString);
+          setUserData(data);
+          // Auto-fill name and address from user data
+          setName(data.user?.name || '');
+          setAddress(data.address || '');
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    };
+
+    if (visible) {
+      loadUserData();
+    }
+  }, [visible]);
 
   return (
     <Modal

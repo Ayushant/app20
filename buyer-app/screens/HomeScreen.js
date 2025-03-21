@@ -174,7 +174,7 @@ const HomeScreen = ({ navigation }) => {
                     />
                     <View style={styles.headerRight}>
                         <Text style={styles.welcomeText}>
-                            {`Hello, ${userData ? userData.name : 'User'}`}
+                            {`Hello, ${userData?.user?.name || 'User'}`}
                         </Text>
                         <TouchableOpacity 
                             style={styles.addressButton}
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     },
     productImage: {
         width: '100%',
-        height: 150,
+        height: 120,
         borderTopLeftRadius: 8,
         borderTopRightRadius: 8,
     },
@@ -410,24 +410,37 @@ const styles = StyleSheet.create({
         padding: 12,
     },
     productName: {
-        fontSize: 14,
-        fontWeight: '500',
+        fontSize: 16,
+        fontWeight: '600',
+        marginBottom: 4,
+    },
+    shopInfoContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 4,
     },
     shopName: {
-        fontSize: 12,
+        fontSize: 14,
         color: '#666',
-        marginBottom: 4,
+        flex: 1,
+        marginRight: 8,
+    },
+    distance: {
+        fontSize: 12,
+        color: '#007AFF',
+        fontWeight: '500',
     },
     productPrice: {
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: '#007AFF',
+        marginBottom: 4,
     },
     prescriptionRequired: {
         fontSize: 12,
-        color: '#ff6b6b',
-        marginTop: 4,
+        color: '#ff3b30',
+        marginBottom: 8,
     },
     authButtons: {
         flexDirection: 'row',
@@ -464,11 +477,9 @@ const styles = StyleSheet.create({
     },
     addToCartButton: {
         backgroundColor: '#007AFF',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
+        padding: 8,
+        borderRadius: 4,
         alignItems: 'center',
-        marginTop: 8,
     },
     addToCartButtonText: {
         color: '#fff',
@@ -503,17 +514,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
-    },
-    shopInfoContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    distance: {
-        fontSize: 12,
-        color: '#007AFF',
-        fontWeight: '500',
     },
     loadingContainer: {
         flex: 1,

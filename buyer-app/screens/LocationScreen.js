@@ -19,7 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 const LocationScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
-  const [address, setAddress] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
+  const [streetName, setStreetName] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [manualInput, setManualInput] = useState(false);
   const [currentLocation, setCurrentLocation] = useState(null);
 
@@ -55,8 +57,8 @@ const LocationScreen = ({ navigation, route }) => {
 
       if (response[0]) {
         const addressComponents = response[0];
-        const formattedAddress = `${addressComponents.street || ''} ${addressComponents.name || ''}, ${addressComponents.city || ''}, ${addressComponents.region || ''}, ${addressComponents.postalCode || ''}`;
-        setAddress(formattedAddress.trim());
+        setStreetName(addressComponents.street || '');
+        setLandmark(addressComponents.name || '');
       }
     } catch (error) {
       console.error('Error getting current location:', error);
@@ -82,9 +84,12 @@ const LocationScreen = ({ navigation, route }) => {
 
       const { token } = JSON.parse(userData);
       
+      // Format the complete address
+      const formattedAddress = `${houseNumber ? houseNumber + ', ' : ''}${streetName}${landmark ? ', Near ' + landmark : ''}`;
+      
       // Prepare location data
       const locationData = {
-        address,
+        address: formattedAddress,
         location: {
           type: 'Point',
           coordinates: currentLocation ? currentLocation.coordinates : [0, 0]
@@ -102,7 +107,7 @@ const LocationScreen = ({ navigation, route }) => {
 
       // Store location in AsyncStorage
       const updatedUserData = JSON.parse(userData);
-      updatedUserData.address = address;
+      updatedUserData.address = formattedAddress;
       updatedUserData.location = locationData.location;
       await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
 
@@ -118,6 +123,10 @@ const LocationScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const isFormValid = () => {
+    return streetName.trim() !== '';
   };
 
   return (
@@ -155,12 +164,24 @@ const LocationScreen = ({ navigation, route }) => {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Enter your address manually"
-            value={address}
-            onChangeText={setAddress}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
+            placeholder="House Number (Optional)"
+            value={houseNumber}
+            onChangeText={setHouseNumber}
+            keyboardType="default"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Street Name *"
+            value={streetName}
+            onChangeText={setStreetName}
+            keyboardType="default"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Landmark (Optional)"
+            value={landmark}
+            onChangeText={setLandmark}
+            keyboardType="default"
           />
         </View>
 
@@ -168,9 +189,9 @@ const LocationScreen = ({ navigation, route }) => {
           <ActivityIndicator size="large" color="#007AFF" style={styles.loader} />
         ) : (
           <TouchableOpacity
-            style={[styles.saveButton, !address && styles.disabledButton]}
+            style={[styles.saveButton, !isFormValid() && styles.disabledButton]}
             onPress={saveLocation}
-            disabled={!address}
+            disabled={!isFormValid()}
           >
             <Text style={styles.saveButtonText}>Save Location</Text>
           </TouchableOpacity>
@@ -186,12 +207,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   scrollContent: {
-    flexGrow: 1,
     padding: 20,
-    paddingTop: 60,
   },
   header: {
-    alignItems: 'center',
     marginBottom: 30,
   },
   title: {
@@ -202,21 +220,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
   },
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f9ff',
+    backgroundColor: '#f0f0f0',
     padding: 15,
     borderRadius: 10,
     marginBottom: 20,
   },
   buttonText: {
+    marginLeft: 10,
     fontSize: 16,
     color: '#007AFF',
-    marginLeft: 10,
   },
   divider: {
     flexDirection: 'row',
@@ -240,8 +257,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 10,
     padding: 15,
+    marginBottom: 15,
     fontSize: 16,
-    minHeight: 100,
   },
   saveButton: {
     backgroundColor: '#007AFF',
@@ -258,7 +275,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   loader: {
-    marginVertical: 20,
+    marginTop: 20,
   },
 });
 
