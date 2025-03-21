@@ -145,7 +145,7 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.statsContainer}>
                 <TouchableOpacity 
                     style={styles.statCard}
-                    onPress={() => navigation.navigate('Orders')}
+                    onPress={() => navigation.navigate('OrderList')}
                 >
                     <View style={[styles.statIcon, { backgroundColor: '#FFE5E5' }]}>
                         <Ionicons name="time-outline" size={24} color="#FF3B30" />
