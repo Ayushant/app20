@@ -92,6 +92,10 @@ const bcrypt = require('bcryptjs');
 const Seller = require('../models/sellerModel');
 const { generateToken } = require('../config/token');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const xlsx = require('xlsx');
+const path = require('path');
+const fs = require('fs');
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
@@ -477,3 +481,106 @@ exports.getDashboardData = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch dashboard data' });
     }
 };
+
+// Create Excel template for bulk upload
+const createTemplate = () => {
+    const workbook = xlsx.utils.book_new();
+    const data = [
+        ['Name*', 'Description*', 'Price*', 'Category*', 'Is General', 'Image URL'],
+        ['Example Medicine', 'Description here', '100', 'Pain Relief', 'TRUE', 'http://example.com/image.jpg']
+    ];
+    const worksheet = xlsx.utils.aoa_to_sheet(data);
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Products');
+    return workbook;
+};
+
+// Download template
+exports.downloadTemplate = async (req, res) => {
+    try {
+        const workbook = createTemplate();
+        const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename="product_upload_template.xlsx"');
+        res.end(buffer);
+    } catch (error) {
+        console.error('Template creation error:', error);
+        res.status(500).json({ message: 'Failed to create template' });
+    }
+};
+
+// Bulk upload products
+exports.bulkUpload = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Please upload an Excel file' })
+        }
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' })
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+        const products = xlsx.utils.sheet_to_json(worksheet)
+
+        const results = {
+            successCount: 0,
+            errorCount: 0,
+            errors: []
+        }
+
+        for (const product of products) {
+            try {
+                // Validate required fields
+                if (!product.Name || !product.Description || !product.Price || !product.Category) {
+                    results.errorCount++
+                    results.errors.push(`Missing required fields for product: ${product.Name || 'Unknown'}`)
+                    continue
+                }
+
+                // Create new product
+                const newProduct = new Product({
+                    name: product.Name,
+                    description: product.Description,
+                    price: parseFloat(product.Price),
+                    category: product.Category,
+                    isGeneral: product['Is General']?.toString().toLowerCase() === 'true',
+                    image: product['Image URL'] || null,
+                    sellerId: req.seller._id
+                })
+
+                await newProduct.save()
+                results.successCount++
+            } catch (error) {
+                results.errorCount++
+                results.errors.push(`Error with product ${product.Name}: ${error.message}`)
+            }
+        }
+
+        res.status(201).json({
+            message: 'Bulk upload completed',
+            successCount: results.successCount,
+            errorCount: results.errorCount,
+            errors: results.errors
+        })
+    } catch (error) {
+        console.error('Bulk upload error:', error)
+        res.status(500).json({ message: 'Failed to process bulk upload' })
+    }
+}
+
+// Configure multer for Excel file upload
+const excelFilter = (req, file, cb) => {
+    if (
+        file.mimetype.includes('excel') ||
+        file.mimetype.includes('spreadsheetml') ||
+        file.mimetype === 'text/csv'
+    ) {
+        cb(null, true)
+    } else {
+        cb('Please upload only excel file.', false)
+    }
+}
+
+const storage = multer.memoryStorage()
+exports.uploadExcel = multer({ 
+    storage: storage,
+    fileFilter: excelFilter
+}).single('file')

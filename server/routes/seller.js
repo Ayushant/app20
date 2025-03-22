@@ -13,17 +13,55 @@
 
 
 const express = require('express');
-const { uploadProduct, getOrders, updateOrderStatus, registerSeller, loginSeller, getSellerProducts } = require('../controllers/sellerController');
+const {
+    registerSeller,
+    loginSeller,
+    updateSellerProfile,
+    getNearbySellers,
+    uploadProduct,
+    getSellerProducts,
+    editProduct,
+    getOrders,
+    updateOrderStatus,
+    getDashboardData,
+    downloadTemplate,
+    bulkUpload,
+    uploadExcel
+} = require('../controllers/sellerController');
 const multer = require('multer');
 const router = express.Router();
 
+const { authenticateSeller } = require('../middleware/auth');
+
 const upload = multer({ dest: 'uploads/products/' });
 
-router.post('/register', registerSeller);  // Seller registration
+// Auth routes (no auth required)
+router.post('/register', registerSeller);
 router.post('/login', loginSeller);
-router.post('/upload-product', upload.single('image'), uploadProduct); // Upload product with image
-router.get('/orders/:sellerId', getOrders); // Get orders for a seller
-router.put('/order-status', updateOrderStatus); // Update order status (accept/reject)
-router.get('/products/:sellerId', getSellerProducts); // Add this line
+
+// Protected routes (require seller auth)
+router.use(authenticateSeller);
+
+// Dashboard route
+router.get('/dashboard', getDashboardData);
+
+// Profile routes
+router.put('/profile/:id', updateSellerProfile);
+router.get('/nearby', getNearbySellers);
+
+// Product routes
+router.post('/upload-product', upload.single('image'), uploadProduct);
+router.get('/products/:sellerId', getSellerProducts);
+router.put('/edit-product/:id', upload.single('image'), editProduct);
+
+// Order routes
+//not used yet
+router.get('/orders/:sellerId', getOrders);
+router.put('/order/:orderId/:action',  updateOrderStatus);
+// router.put('/order/:orderId/prescription', verifyPrescription);
+
+// Add these new routes for bulk upload
+router.get('/download-template', authenticateSeller, downloadTemplate);
+router.post('/bulk-upload', uploadExcel, bulkUpload);
 
 module.exports = router;
