@@ -1,8 +1,10 @@
 import { useState } from "react"
-import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView } from "react-native"
+import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, ActivityIndicator } from "react-native"
 import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import LocationPicker from '../components/LocationPicker'
+import { API_URL } from '../config/api';
+import secureStorage from '../config/secureStorage';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("")
@@ -12,6 +14,7 @@ export default function RegisterScreen({ navigation }) {
   const [gstNumber, setGstNumber] = useState("")
   const [showMap, setShowMap] = useState(false)
   const [location, setLocation] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleRegister = async () => {
     try {
@@ -21,8 +24,8 @@ export default function RegisterScreen({ navigation }) {
         return
       }
 
-      console.log("Loacation", location)
-      const response = await axios.post('http://172.31.110.208:8000/api/seller/register', {
+      setIsLoading(true);
+      const response = await axios.post(`${API_URL}/seller/register`, {
         name,
         email,
         password,
@@ -35,26 +38,42 @@ export default function RegisterScreen({ navigation }) {
         }
       })
 
-      // Store seller data in AsyncStorage after successful registration
-      await AsyncStorage.setItem('sellerData', JSON.stringify({
+      // Store seller data securely after successful registration
+      await secureStorage.setObject('sellerData', {
         id: response.data._id,
         token: response.data.token,
         name: response.data.name,
         email: response.data.email,
         location: response.data.location
-      }))
+      });
 
       Alert.alert(
         "Success",
         "Registration successful!",
-        [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+        [{ text: "OK", onPress: () => navigation.replace("Home") }]
       )
     } catch (error) {
       console.error("Registration error:", error)
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Registration failed. Please try again."
-      )
+      
+      let errorMessage = "Registration failed. Please try again.";
+      
+      if (error.response) {
+        // Handle specific error responses
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response.status === 409) {
+          errorMessage = "Email already registered. Please use a different email.";
+        } else if (error.response.status === 400) {
+          errorMessage = "Invalid input data. Please check all fields.";
+        }
+      } else if (error.request) {
+        // The request was made but no response was received
+        errorMessage = "Network error. Please check your internet connection.";
+      }
+      
+      Alert.alert("Registration Error", errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -113,6 +132,7 @@ export default function RegisterScreen({ navigation }) {
       <Button
         title={location ? "Change Shop Location" : "Select Shop Location"}
         onPress={() => setShowMap(true)}
+        disabled={isLoading}
       />
 
       {location && (
@@ -121,11 +141,20 @@ export default function RegisterScreen({ navigation }) {
         </Text>
       )}
 
-      <Button title="Register" onPress={handleRegister} />
-      <Button
-        title="Already have an account? Login"
-        onPress={() => navigation.navigate("Login")}
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Registering...</Text>
+        </View>
+      ) : (
+        <>
+          <Button title="Register" onPress={handleRegister} />
+          <Button
+            title="Already have an account? Login"
+            onPress={() => navigation.navigate("Login")}
+          />
+        </>
+      )}
     </ScrollView>
   )
 }
@@ -154,5 +183,13 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
   },
+  loadingContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#007AFF',
+  }
 });
 

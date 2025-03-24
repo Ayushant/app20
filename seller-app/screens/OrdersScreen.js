@@ -16,6 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
+import secureStorage from '../config/secureStorage';
 
 const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -36,13 +37,13 @@ const OrdersScreen = ({ navigation }) => {
         setIsLoadingMore(true);
       }
 
-      const sellerDataString = await AsyncStorage.getItem('sellerData');
-      if (!sellerDataString) {
+      const sellerData = await secureStorage.getObject('sellerData');
+      if (!sellerData) {
+        Alert.alert('Session Expired', 'Your session has expired. Please login again.');
         navigation.replace('Login');
         return;
       }
 
-      const sellerData = JSON.parse(sellerDataString);
       const response = await axios.get(
         `${API_URL}/seller/orders/${sellerData.id}?page=${page}&limit=10`,
         {
@@ -60,7 +61,22 @@ const OrdersScreen = ({ navigation }) => {
       setHasMore(response.data.hasMore);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      Alert.alert("Error", "Failed to load orders");
+      
+      let errorMessage = "Failed to load orders. Please try again.";
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Your session has expired. Please login again.";
+          await secureStorage.removeItem('sellerData');
+          navigation.replace('Login');
+          return;
+        }
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your internet connection.";
+      }
+      
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false);
       setIsLoadingMore(false);
@@ -74,13 +90,13 @@ const OrdersScreen = ({ navigation }) => {
 
   const handleOrderAction = async (orderId, action) => {
     try {
-      const sellerDataString = await AsyncStorage.getItem('sellerData');
-      if (!sellerDataString) {
+      const sellerData = await secureStorage.getObject('sellerData');
+      if (!sellerData) {
+        Alert.alert('Session Expired', 'Your session has expired. Please login again.');
         navigation.replace('Login');
         return;
       }
 
-      const sellerData = JSON.parse(sellerDataString);
       await axios.put(
         `${API_URL}/seller/order/${orderId}/${action}`,
         {},
@@ -93,7 +109,22 @@ const OrdersScreen = ({ navigation }) => {
       fetchOrders(1); // Refresh orders list from the first page
     } catch (error) {
       console.error("Error updating order:", error);
-      Alert.alert("Error", `Failed to ${action} order`);
+      
+      let errorMessage = `Failed to ${action} order. Please try again.`;
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Your session has expired. Please login again.";
+          await secureStorage.removeItem('sellerData');
+          navigation.replace('Login');
+          return;
+        }
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your internet connection.";
+      }
+      
+      Alert.alert("Error", errorMessage);
     }
   };
 

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
 import { useFocusEffect } from '@react-navigation/native'
 import { API_URL } from '../config/api'
+import secureStorage from '../config/secureStorage'
 
 export default function ProductListScreen({ navigation }) {
   const [products, setProducts] = useState([])
@@ -62,8 +63,9 @@ export default function ProductListScreen({ navigation }) {
     if (!initialized) return
     
     try {
-      const sellerDataString = await AsyncStorage.getItem('sellerData')
-      if (!sellerDataString) {
+      const sellerData = await secureStorage.getObject('sellerData')
+      if (!sellerData) {
+        Alert.alert('Session Expired', 'Your session has expired. Please login again.');
         navigation.replace('Login')
         return
       }
@@ -72,7 +74,6 @@ export default function ProductListScreen({ navigation }) {
       const savedTab = await AsyncStorage.getItem('activeProductTab')
       const currentTab = savedTab || activeTab
       
-      const sellerData = JSON.parse(sellerDataString)
       const response = await axios.get(
         `${API_URL}/seller/products/${sellerData.id}`,
         {
@@ -98,7 +99,22 @@ export default function ProductListScreen({ navigation }) {
       }
     } catch (error) {
       console.error("Error fetching products:", error)
-      Alert.alert("Error", "Failed to fetch products")
+      
+      let errorMessage = "Failed to fetch products. Please try again.";
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Your session has expired. Please login again.";
+          await secureStorage.removeItem('sellerData');
+          navigation.replace('Login');
+          return;
+        }
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your internet connection.";
+      }
+      
+      Alert.alert("Error", errorMessage);
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -115,6 +131,7 @@ export default function ProductListScreen({ navigation }) {
       await AsyncStorage.setItem('activeProductTab', tab)
     } catch (error) {
       console.error("Error saving tab selection:", error)
+      // We don't need to alert the user for this non-critical error
     }
     
     // Apply filter immediately

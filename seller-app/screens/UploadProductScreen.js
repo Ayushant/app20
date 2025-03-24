@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { API_URL } from '../config/api'
 import * as FileSystem from 'expo-file-system'
 import { Ionicons } from '@expo/vector-icons'
+import secureStorage from '../config/secureStorage'
 
 export default function UploadProductScreen({ navigation }) {
     const [name, setName] = useState("")
@@ -26,18 +27,18 @@ export default function UploadProductScreen({ navigation }) {
         // Load seller data when component mounts
         const loadSellerData = async () => {
             try {
-                const sellerDataString = await AsyncStorage.getItem('sellerData')
-                if (sellerDataString) {
-                    const sellerData = JSON.parse(sellerDataString)
+                const sellerData = await secureStorage.getObject('sellerData')
+                if (sellerData && sellerData.id && sellerData.token) {
                     setSellerId(sellerData.id)
                     setToken(sellerData.token)
                 } else {
-                    Alert.alert("Error", "Please login again")
-                    navigation.navigate("Login")
+                    Alert.alert("Session Expired", "Your session has expired. Please login again.")
+                    navigation.replace("Login")
                 }
             } catch (error) {
                 console.error("Error loading seller data:", error)
-                navigation.navigate("Login")
+                Alert.alert("Authentication Error", "Failed to load authentication data. Please login again.")
+                navigation.replace("Login")
             }
         }
         loadSellerData()
@@ -83,6 +84,12 @@ export default function UploadProductScreen({ navigation }) {
 
     const downloadTemplate = async () => {
         try {
+            if (!token) {
+                Alert.alert("Authentication Error", "Please login again to continue.");
+                navigation.replace("Login");
+                return;
+            }
+            
             setLoading(true);
             const response = await axios({
                 url: `${API_URL}/seller/download-template`,
@@ -109,7 +116,21 @@ export default function UploadProductScreen({ navigation }) {
             );
         } catch (error) {
             console.error("Template download error:", error);
-            Alert.alert("Error", "Failed to download template");
+            
+            let errorMessage = "Failed to download template. Please try again.";
+            
+            if (error.response) {
+                if (error.response.status === 401) {
+                    errorMessage = "Your session has expired. Please login again.";
+                    await secureStorage.removeItem('sellerData');
+                    navigation.replace('Login');
+                    return;
+                }
+            } else if (error.request) {
+                errorMessage = "Network error. Please check your internet connection.";
+            }
+            
+            Alert.alert("Download Error", errorMessage);
         } finally {
             setLoading(false);
         }
@@ -130,6 +151,12 @@ export default function UploadProductScreen({ navigation }) {
         if (!selectedFile) {
             Alert.alert("Error", "Please select an Excel file first")
             return
+        }
+
+        if (!token || !sellerId) {
+            Alert.alert("Authentication Error", "Please login again to continue.");
+            navigation.replace("Login");
+            return;
         }
 
         try {
@@ -162,10 +189,22 @@ export default function UploadProductScreen({ navigation }) {
             }
         } catch (error) {
             console.error("Bulk upload error:", error)
-            Alert.alert(
-                "Error",
-                error.response?.data?.message || "Failed to upload products. Please check your Excel file and try again."
-            )
+            
+            let errorMessage = "Failed to upload products. Please check your Excel file and try again.";
+            
+            if (error.response) {
+                if (error.response.status === 401) {
+                    errorMessage = "Your session has expired. Please login again.";
+                    await secureStorage.removeItem('sellerData');
+                    navigation.replace('Login');
+                    return;
+                }
+                errorMessage = error.response.data?.message || errorMessage;
+            } else if (error.request) {
+                errorMessage = "Network error. Please check your internet connection.";
+            }
+            
+            Alert.alert("Upload Error", errorMessage);
         } finally {
             setLoading(false)
         }
@@ -177,12 +216,14 @@ export default function UploadProductScreen({ navigation }) {
             return
         }
 
+        if (!token || !sellerId) {
+            Alert.alert("Authentication Error", "Please login again to continue.");
+            navigation.replace("Login");
+            return;
+        }
+
         try {
             setLoading(true)
-            if (!sellerId) {
-                Alert.alert("Error", "Seller authentication required")
-                return
-            }
 
             const formData = new FormData()
             formData.append("name", name)
@@ -223,10 +264,22 @@ export default function UploadProductScreen({ navigation }) {
             }
         } catch (error) {
             console.error("Upload error:", error)
-            Alert.alert(
-                "Error", 
-                error.response?.data?.message || "Failed to upload product. Please try again."
-            )
+            
+            let errorMessage = "Failed to upload product. Please try again.";
+            
+            if (error.response) {
+                if (error.response.status === 401) {
+                    errorMessage = "Your session has expired. Please login again.";
+                    await secureStorage.removeItem('sellerData');
+                    navigation.replace('Login');
+                    return;
+                }
+                errorMessage = error.response.data?.message || errorMessage;
+            } else if (error.request) {
+                errorMessage = "Network error. Please check your internet connection.";
+            }
+            
+            Alert.alert("Upload Error", errorMessage);
         } finally {
             setLoading(false)
         }

@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config/api';
 import { useFocusEffect } from '@react-navigation/native';
+import secureStorage from '../config/secureStorage';
 
 export default function HomeScreen({ navigation }) {
     const [dashboardData, setDashboardData] = useState(null);
@@ -19,15 +21,15 @@ export default function HomeScreen({ navigation }) {
 
     const fetchDashboardData = async () => {
         try {
-            const sellerDataString = await AsyncStorage.getItem('sellerData');
-            if (!sellerDataString) {
+            const sellerData = await secureStorage.getObject('sellerData');
+            if (!sellerData) {
+                Alert.alert('Session Expired', 'Your session has expired. Please login again.');
                 navigation.replace('Login');
                 return;
             }
 
-            const sellerData = JSON.parse(sellerDataString);
             if (!sellerData.token) {
-                Alert.alert('Error', 'Authentication token not found. Please login again.');
+                Alert.alert('Authentication Error', 'Authentication token not found. Please login again.');
                 navigation.replace('Login');
                 return;
             }
@@ -39,18 +41,35 @@ export default function HomeScreen({ navigation }) {
                 }
             });
 
+            if (response.status === 401) {
+                Alert.alert('Session Expired', 'Your session has expired. Please login again.');
+                await secureStorage.removeItem('sellerData');
+                navigation.replace('Login');
+                return;
+            }
+
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to fetch dashboard data');
+                throw new Error(errorData.message || errorData.error || 'Failed to fetch dashboard data');
             }
 
             const data = await response.json();
             setDashboardData(data);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
+            
+            // More specific error handling based on error type
+            let errorMessage = 'An unexpected error occurred. Please try again.';
+            
+            if (error.message.includes('Network request failed')) {
+                errorMessage = 'Network connection error. Please check your internet connection.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
             Alert.alert(
-                'Error',
-                error.message || 'Failed to fetch dashboard data. Please try again.',
+                'Dashboard Error',
+                errorMessage,
                 [
                     {
                         text: 'Retry',
@@ -62,7 +81,7 @@ export default function HomeScreen({ navigation }) {
                     {
                         text: 'Logout',
                         onPress: async () => {
-                            await AsyncStorage.removeItem('sellerData');
+                            await secureStorage.removeItem('sellerData');
                             navigation.replace('Login');
                         }
                     }
@@ -76,8 +95,19 @@ export default function HomeScreen({ navigation }) {
 
     const handleOrderAction = async (orderId, action) => {
         try {
-            const sellerDataString = await AsyncStorage.getItem('sellerData');
-            const sellerData = JSON.parse(sellerDataString);
+            setLoading(true);
+            const sellerData = await secureStorage.getObject('sellerData');
+            if (!sellerData) {
+                Alert.alert('Session Expired', 'Your session has expired. Please login again.');
+                navigation.replace('Login');
+                return;
+            }
+            
+            if (!sellerData.token) {
+                Alert.alert('Authentication Error', 'Authentication token not found. Please login again.');
+                navigation.replace('Login');
+                return;
+            }
 
             const response = await fetch(`${API_URL}/seller/order/${orderId}/${action}`, {
                 method: 'PUT',
@@ -87,9 +117,16 @@ export default function HomeScreen({ navigation }) {
                 }
             });
 
+            if (response.status === 401) {
+                Alert.alert('Session Expired', 'Your session has expired. Please login again.');
+                await secureStorage.removeItem('sellerData');
+                navigation.replace('Login');
+                return;
+            }
+
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to ${action} order`);
+                throw new Error(errorData.message || errorData.error || `Failed to ${action} order`);
             }
 
             // Refresh dashboard data
@@ -97,15 +134,28 @@ export default function HomeScreen({ navigation }) {
             
             Alert.alert(
                 'Success',
-                `Order ${action}ed successfully`,
+                `Order ${action === 'accept' ? 'accepted' : 'rejected'} successfully`,
                 [{ text: 'OK' }]
             );
         } catch (error) {
             console.error(`Error ${action}ing order:`, error);
+            
+            // Provide more specific error messages
+            let errorMessage = `Failed to ${action} order. Please try again.`;
+            
+            if (error.message.includes('Network request failed')) {
+                errorMessage = 'Network connection error. Please check your internet connection.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
             Alert.alert(
-                'Error',
-                error.message || `Failed to ${action} order. Please try again.`
+                `${action.charAt(0).toUpperCase() + action.slice(1)} Error`,
+                errorMessage,
+                [{ text: 'OK' }]
             );
+        } finally {
+            setLoading(false);
         }
     };
 
