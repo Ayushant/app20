@@ -6,15 +6,37 @@ import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config/api';
 import secureStorage from '../config/secureStorage';
+import { isValidEmail, getEmailErrorMessage } from '../config/validation';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [emailError, setEmailError] = useState("")
+
+  const validateEmail = (text) => {
+    setEmail(text);
+    if (text && !isValidEmail(text)) {
+      setEmailError(getEmailErrorMessage());
+    } else {
+      setEmailError("");
+    }
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please enter both email and password");
+    // Validate inputs
+    if (!email) {
+      Alert.alert("Error", "Please enter your email");
+      return;
+    }
+    
+    if (!isValidEmail(email)) {
+      Alert.alert("Error", getEmailErrorMessage());
+      return;
+    }
+    
+    if (!password) {
+      Alert.alert("Error", "Please enter your password");
       return;
     }
 
@@ -63,13 +85,15 @@ export default function LoginScreen({ navigation }) {
     <View style={styles.container}>
       <Text style={styles.title}>Seller App Login</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, emailError ? styles.inputError : null]}
         placeholder="Email"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={validateEmail}
         keyboardType="email-address"
         autoCapitalize="none"
       />
+      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+      
       <TextInput
         style={styles.input}
         placeholder="Password"
@@ -101,6 +125,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
     paddingHorizontal: 8,
+    borderRadius: 5,
   },
-})
+  inputError: {
+    borderColor: "red",
+    borderWidth: 1,
+  },
+  errorText: {
+    color: "red",
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+});
 

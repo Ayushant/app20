@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import LocationPicker from '../components/LocationPicker'
 import { API_URL } from '../config/api';
 import secureStorage from '../config/secureStorage';
+import { isValidEmail, getEmailErrorMessage } from '../config/validation';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("")
@@ -15,13 +16,53 @@ export default function RegisterScreen({ navigation }) {
   const [showMap, setShowMap] = useState(false)
   const [location, setLocation] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [emailError, setEmailError] = useState("")
+
+  const validateEmail = (text) => {
+    setEmail(text);
+    if (text && !isValidEmail(text)) {
+      setEmailError(getEmailErrorMessage());
+    } else {
+      setEmailError("");
+    }
+  };
 
   const handleRegister = async () => {
     try {
       // Validate inputs
-      if (!name || !email || !password || !shopName || !gstNumber || !location) {
-        Alert.alert("Error", "Please fill in all fields including shop location")
-        return
+      if (!name) {
+        Alert.alert("Error", "Please enter your full name");
+        return;
+      }
+      
+      if (!email) {
+        Alert.alert("Error", "Please enter your email");
+        return;
+      }
+      
+      if (!isValidEmail(email)) {
+        Alert.alert("Error", getEmailErrorMessage());
+        return;
+      }
+      
+      if (!password) {
+        Alert.alert("Error", "Please enter a password");
+        return;
+      }
+      
+      if (!shopName) {
+        Alert.alert("Error", "Please enter your shop name");
+        return;
+      }
+      
+      if (!gstNumber) {
+        Alert.alert("Error", "Please enter your GST number");
+        return;
+      }
+      
+      if (!location) {
+        Alert.alert("Error", "Please select your shop location");
+        return;
       }
 
       setIsLoading(true);
@@ -113,13 +154,14 @@ export default function RegisterScreen({ navigation }) {
       />
 
       <TextInput
-        style={styles.input}
+        style={[styles.input, emailError ? styles.inputError : null]}
         placeholder="Email *"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={validateEmail}
         keyboardType="email-address"
         autoCapitalize="none"
       />
+      {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
       <TextInput
         style={styles.input}
@@ -177,6 +219,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 8,
     borderRadius: 5,
+  },
+  inputError: {
+    borderColor: "red",
+    borderWidth: 1,
+  },
+  errorText: {
+    color: "red",
+    fontSize: 12,
+    marginTop: -8,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
   locationText: {
     marginVertical: 10,
