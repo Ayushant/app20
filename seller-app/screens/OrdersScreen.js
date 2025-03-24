@@ -9,7 +9,8 @@ import {
   Image,
   Modal,
   ScrollView,
-  Dimensions
+  Dimensions,
+  ActivityIndicator
 } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -20,13 +21,21 @@ const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (page = 1) => {
     try {
+      setLoading(page === 1);
+      if (page > 1) {
+        setIsLoadingMore(true);
+      }
+
       const sellerDataString = await AsyncStorage.getItem('sellerData');
       if (!sellerDataString) {
         navigation.replace('Login');
@@ -35,18 +44,32 @@ const OrdersScreen = ({ navigation }) => {
 
       const sellerData = JSON.parse(sellerDataString);
       const response = await axios.get(
-        `${API_URL}/seller/orders/${sellerData.id}`,
+        `${API_URL}/seller/orders/${sellerData.id}?page=${page}&limit=10`,
         {
           headers: { Authorization: `Bearer ${sellerData.token}` }
         }
       );
-      setOrders(response.data);
+      
+      if (page === 1) {
+        setOrders(response.data.orders);
+      } else {
+        setOrders(prevOrders => [...prevOrders, ...response.data.orders]);
+      }
+      
+      setCurrentPage(response.data.currentPage);
+      setHasMore(response.data.hasMore);
     } catch (error) {
       console.error("Error fetching orders:", error);
       Alert.alert("Error", "Failed to load orders");
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
     }
+  };
+
+  const loadMoreOrders = () => {
+    if (!hasMore || isLoadingMore) return;
+    fetchOrders(currentPage + 1);
   };
 
   const handleOrderAction = async (orderId, action) => {
@@ -67,7 +90,7 @@ const OrdersScreen = ({ navigation }) => {
       );
 
       Alert.alert("Success", `Order ${action}ed successfully`);
-      fetchOrders(); // Refresh orders list
+      fetchOrders(1); // Refresh orders list from the first page
     } catch (error) {
       console.error("Error updating order:", error);
       Alert.alert("Error", `Failed to ${action} order`);
@@ -160,9 +183,20 @@ const OrdersScreen = ({ navigation }) => {
     </Modal>
   );
 
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.footer}>
+        <ActivityIndicator size="small" color="#4CAF50" />
+        <Text style={styles.footerText}>Loading more orders...</Text>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
         <Text>Loading orders...</Text>
       </View>
     );
@@ -176,7 +210,13 @@ const OrdersScreen = ({ navigation }) => {
         renderItem={renderItem}
         keyExtractor={(item) => item._id}
         refreshing={loading}
-        onRefresh={fetchOrders}
+        onRefresh={() => fetchOrders(1)}
+        onEndReached={loadMoreOrders}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
+          <Text style={styles.emptyMessage}>No orders found</Text>
+        }
       />
       <ImagePreviewModal />
     </View>
@@ -188,6 +228,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     marginTop: 50,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   title: {
     fontSize: 24,
@@ -277,6 +322,22 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 1,
     padding: 10,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  footerText: {
+    marginLeft: 10,
+    color: '#666',
+  },
+  emptyMessage: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#666',
+    marginTop: 20,
   },
 });
 

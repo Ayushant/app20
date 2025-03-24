@@ -295,10 +295,27 @@ exports.getSellerProducts = async (req, res) => {
 exports.getOrders = async (req, res) => {
     try {
         const { sellerId } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+        
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+        
         const orders = await Order.find({ sellerId })
             .populate('buyerId', 'name')
-            .populate('products.productId');
-        res.status(200).json(orders);
+            .populate('products.productId')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
+            
+        const totalOrders = await Order.countDocuments({ sellerId });
+        
+        res.status(200).json({
+            orders,
+            currentPage: pageNum,
+            totalPages: Math.ceil(totalOrders / limitNum),
+            hasMore: pageNum * limitNum < totalOrders
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
