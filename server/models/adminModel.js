@@ -12,29 +12,20 @@ const adminSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    minlength: 6
   },
-  role: {
-    type: String,
-    enum: ['admin'],
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  }
 }, { timestamps: true });
 
 // Hash password before saving
-adminSchema.pre('save', async function(next) {
-    if (this.isModified('password')) {
-        this.password = await bcrypt.hash(this.password, 8);
-    }
-    next();
-});
+// adminSchema.pre('save', async function(next) {
+//     if (this.isModified('password')) {
+//         this.password = await bcrypt.hash(this.password, 8);
+//     }
+//     next();
+// });
 
 // Method to compare password
-adminSchema.methods.comparePassword = async function(password) {
-    return bcrypt.compare(password, this.password);
-};
+// adminSchema.methods.comparePassword = async function(password) {
+//     return bcrypt.compare(password, this.password);
+// };
 
 module.exports = mongoose.model('Admin', adminSchema); 
