@@ -1,15 +1,31 @@
-import { BrowserRouter as Router } from 'react-router-dom';
-import './App.css';
-import Dashboard from './components/Dashboard';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import DashboardLayout from './layouts/DashboardLayout';
 
-function App() {
+const PrivateRoute = ({ children }) => {
+  const isAuthenticated = !!localStorage.getItem('adminToken');
+  return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
+export default function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-100">
-        <Dashboard />
-      </div>
-    </Router>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <DashboardLayout />
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" />} />
+          <Route path="dashboard" element={<Dashboard />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
 
-export default App;
