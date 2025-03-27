@@ -4,6 +4,7 @@ const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const Seller = require('../models/sellerModel');
+const cloudinary = require('../config/cloudinary');
 
 // Initialize AWS SNS client
 const snsClient = new SNSClient({
@@ -35,11 +36,21 @@ exports.getProducts = async (req, res) => {
 };
 
 // Place a new order
+// Modify placeOrder function
 exports.placeOrder = async (req, res) => {
     try {
         const { items, totalPrice, deliveryCharge, platformFee, address, name } = req.body;
-        const prescription = req.file ? req.file.path : null;
-        
+        let prescriptionUrl = null;
+
+        // Upload prescription to Cloudinary if provided
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(req.file.path);
+            prescriptionUrl = result.secure_url;
+            
+            // Delete local file after upload
+            fs.unlinkSync(req.file.path);
+        }
+
         // Validate if user is authenticated
         if (!req.user) {
             return res.status(401).json({ error: 'Authentication required' });
@@ -90,7 +101,7 @@ exports.placeOrder = async (req, res) => {
                 quantity: item.quantity,
                 requiresPrescription: !item.isGeneral
             })),
-            prescription: prescription,
+            prescription: prescriptionUrl,
             totalPrice: totalPrice,
             deliveryCharge: deliveryCharge || 0,
             platformFee: platformFee || 0,
@@ -119,6 +130,10 @@ exports.placeOrder = async (req, res) => {
             orderId: newOrder._id
         });
     } catch (error) {
+        // Delete local file if exists and upload failed
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
         console.error('Order placement error:', error);
         res.status(500).json({ error: 'Failed to place order' });
     }
@@ -254,10 +269,20 @@ exports.updateLocation = async (req, res) => {
     try {
         const { address, location } = req.body;
 
-        // Validate location data
         console.log(location)
-        if (!address || !location || !location.coordinates) {
-            return res.status(400).json({ error: 'Invalid location data' });
+        // Validate location data
+        if (!location || !location.coordinates) {
+            return res.status(400).json({ error: 'Invalid location coordinates' });
+        }
+
+        // Validate address format
+        if (!address || typeof address !== 'string' || address.trim().length === 0) {
+            return res.status(400).json({ error: 'Address is required' });
+        }
+
+        // Validate coordinates format
+        if (!Array.isArray(location.coordinates) || location.coordinates.length !== 2) {
+            return res.status(400).json({ error: 'Invalid coordinates format' });
         }
 
         // Update user's location
@@ -267,7 +292,7 @@ exports.updateLocation = async (req, res) => {
                 location: {
                     type: 'Point',
                     coordinates: location.coordinates,
-                    address: address
+                    address: address.trim()
                 }
             },
             { new: true }
