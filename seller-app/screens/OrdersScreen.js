@@ -12,11 +12,12 @@ import {
   Dimensions,
   ActivityIndicator
 } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
 import secureStorage from '../config/secureStorage';
+// Add import
+import FastImage from 'react-native-fast-image'
 
 const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -373,4 +374,15 @@ const styles = StyleSheet.create({
 });
 
 export default OrdersScreen;
+
+// Update prescription image rendering
+<FastImage
+  source={{ 
+    uri: imageUrl,
+    priority: FastImage.priority.normal,
+    cache: FastImage.cacheControl.immutable
+  }}
+  style={styles.prescriptionThumbnail}
+  resizeMode={FastImage.resizeMode.cover}
+/>
 

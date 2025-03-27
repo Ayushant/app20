@@ -17,6 +17,7 @@ import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import FastImage from 'react-native-fast-image';
 
 const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -89,27 +90,33 @@ const OrdersScreen = ({ navigation }) => {
     return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
   };
 
+  // Replace the prescription image component
   const renderPrescriptionImage = (prescription) => {
     if (!prescription) return null;
-
-    // Get the correct image URL by removing 'uploads/' if it exists in the path
+  
     const prescriptionPath = prescription.replace('uploads/', '');
     const imageUrl = `${API_URL}/uploads/prescriptions/${prescriptionPath}`;
-
+  
     return (
       <TouchableOpacity
         onPress={() => setSelectedImage(imageUrl)}
         style={styles.prescriptionContainer}
       >
-        <Image
-          source={{ uri: imageUrl }}
+        <FastImage
+          source={{ 
+            uri: imageUrl,
+            priority: FastImage.priority.normal,
+            cache: FastImage.cacheControl.immutable
+          }}
           style={styles.prescriptionThumbnail}
+          resizeMode={FastImage.resizeMode.cover}
         />
         <Text style={styles.viewPrescriptionText}>View Prescription</Text>
       </TouchableOpacity>
     );
   };
-
+  
+  // Replace the modal image preview
   const ImagePreviewModal = () => (
     <Modal
       visible={!!selectedImage}
@@ -123,10 +130,14 @@ const OrdersScreen = ({ navigation }) => {
         >
           <Ionicons name="close" size={30} color="white" />
         </TouchableOpacity>
-        <Image
-          source={{ uri: selectedImage }}
+        <FastImage
+          source={{ 
+            uri: selectedImage,
+            priority: FastImage.priority.high,
+            cache: FastImage.cacheControl.immutable
+          }}
           style={styles.fullImage}
-          resizeMode="contain"
+          resizeMode={FastImage.resizeMode.contain}
         />
       </View>
     </Modal>
@@ -435,4 +446,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default OrdersScreen; 
+export default OrdersScreen;

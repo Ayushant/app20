@@ -11,6 +11,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
+import { API_URL } from '../config/api';
+
 export default function RegisterScreen({ navigation }) {
     const [name, setName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -66,7 +68,7 @@ export default function RegisterScreen({ navigation }) {
 
         try {
             setLoading(true);
-            const response = await axios.post('http://172.31.110.208:8000/api/buyer/verify-otp', {
+            const response = await axios.post('http://172.31.41.234:8000/api/buyer/verify-otp', {
                 phoneNumber: '+91' + phoneNumber,
                 otp,
                 name

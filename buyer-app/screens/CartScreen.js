@@ -24,6 +24,9 @@ import { updateQuantity, clearCart } from '../store/slices/cartSlice';
 
 // API_URL='http://172.31.41.234:8000/api/'
 
+// Add import
+import FastImage from 'react-native-fast-image';
+
 const AddressModal = ({ visible, onClose, onSubmit }) => {
   const [address, setAddress] = useState('');
   const [name, setName] = useState('');
@@ -538,3 +541,16 @@ const styles = StyleSheet.create({
 });
 
 export default CartScreen;
+
+// Replace product image rendering in renderCartItem
+{item.image && (
+  <FastImage
+    source={{ 
+      uri: `${API_URL}/${item.image}`,
+      priority: FastImage.priority.normal,
+      cache: FastImage.cacheControl.immutable
+    }}
+    style={styles.productImage}
+    resizeMode={FastImage.resizeMode.cover}
+  />
+)}

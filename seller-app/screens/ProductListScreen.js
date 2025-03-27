@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useFocusEffect } from '@react-navigation/native'
 import { API_URL } from '../config/api'
 import secureStorage from '../config/secureStorage'
+import FastImage from 'react-native-fast-image'
 
 export default function ProductListScreen({ navigation }) {
   const [products, setProducts] = useState([])
@@ -181,9 +182,14 @@ export default function ProductListScreen({ navigation }) {
     >
       <View style={styles.productInfo}>
         {item.image && (
-          <Image
-            source={{ uri: `${API_URL}/${item.image}` }}
+          <FastImage
+            source={{ 
+              uri: `${API_URL}/${item.image}`,
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable
+            }}
             style={styles.productImage}
+            resizeMode={FastImage.resizeMode.cover}
           />
         )}
         <View style={styles.productDetails}>

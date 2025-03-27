@@ -24,13 +24,33 @@ const { width } = Dimensions.get('window');
 const HomeScreen = ({ navigation }) => {
     const [userData, setUserData] = useState(null);
     const [products, setProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
     const [cartItems, setCartItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
     const dispatch = useDispatch();
 
     useEffect(() => {
         checkAuthAndLocation();
     }, []);
+
+    // Filter products based on search query
+    useEffect(() => {
+        if (products.length > 0) {
+            if (searchQuery.trim() === '') {
+                setFilteredProducts(products);
+            } else {
+                const lowercasedQuery = searchQuery.toLowerCase();
+                const filtered = products.filter(product => 
+                    product.name.toLowerCase().includes(lowercasedQuery) ||
+                    (product.category && product.category.toLowerCase().includes(lowercasedQuery)) ||
+                    (product.sellerId?.shopName && product.sellerId.shopName.toLowerCase().includes(lowercasedQuery))
+                );
+                setFilteredProducts(filtered);
+            }
+        }
+    }, [searchQuery, products]);
 
     const checkAuthAndLocation = async () => {
         try {
@@ -127,6 +147,7 @@ const HomeScreen = ({ navigation }) => {
             const data = await response.json();
             if (response.ok) {
                 setProducts(data);
+                setFilteredProducts(data);
             }
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -160,6 +181,14 @@ const HomeScreen = ({ navigation }) => {
 
         dispatch(addToCart(product));
         Alert.alert('Success', 'Item added to cart');
+    };
+
+    const handleSearch = (text) => {
+        setSearchQuery(text);
+    };
+
+    const clearSearch = () => {
+        setSearchQuery('');
     };
 
     const renderHeader = () => (
@@ -265,16 +294,24 @@ const HomeScreen = ({ navigation }) => {
                 </View>
             ) : (
                 <>
-                    <TouchableOpacity 
-                        style={styles.searchBar}
-                        onPress={() => navigation.navigate('Search')}
-                    >
+                    <View style={styles.searchBar}>
                         <Ionicons name="search" size={20} color="#666" />
-                        <Text style={styles.searchPlaceholder}>Search medicines...</Text>
-                    </TouchableOpacity>
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search medicines..."
+                            value={searchQuery}
+                            onChangeText={handleSearch}
+                            onFocus={() => setIsSearching(true)}
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={clearSearch}>
+                                <Ionicons name="close-circle" size={20} color="#666" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
                     <FlatList
-                        data={products}
+                        data={filteredProducts}
                         renderItem={renderProductItem}
                         keyExtractor={item => item._id}
                         numColumns={2}
@@ -282,20 +319,31 @@ const HomeScreen = ({ navigation }) => {
                         contentContainerStyle={styles.productList}
                         showsVerticalScrollIndicator={false}
                         ListHeaderComponent={() => (
-                            <View style={styles.banner}>
-                                <Image
-                                    source={require('../assets/banner.png')}
-                                    style={styles.bannerImage}
-                                    resizeMode="cover"
-                                    accessible={true}
-                                    accessibilityLabel="Promotional banner"
-                                />
-                            </View>
+                            !searchQuery ? (
+                                <View style={styles.banner}>
+                                    <Image
+                                        source={require('../assets/banner.png')}
+                                        style={styles.bannerImage}
+                                        resizeMode="cover"
+                                        accessible={true}
+                                        accessibilityLabel="Promotional banner"
+                                    />
+                                </View>
+                            ) : null
                         )}
                         ListEmptyComponent={() => (
                             <View style={styles.emptyContainer}>
-                                <Text style={styles.emptyText}>No nearby stores found</Text>
-                                <Text style={styles.emptySubtext}>Try changing your location</Text>
+                                {searchQuery ? (
+                                    <>
+                                        <Text style={styles.emptyText}>No products found</Text>
+                                        <Text style={styles.emptySubtext}>Try a different search term</Text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text style={styles.emptyText}>No nearby stores found</Text>
+                                        <Text style={styles.emptySubtext}>Try changing your location</Text>
+                                    </>
+                                )}
                             </View>
                         )}
                     />
@@ -361,6 +409,12 @@ const styles = StyleSheet.create({
         padding: 12,
         backgroundColor: '#f5f5f5',
         borderRadius: 8,
+    },
+    searchInput: {
+        flex: 1,
+        marginLeft: 8,
+        color: '#333',
+        fontSize: 16,
     },
     searchPlaceholder: {
         marginLeft: 8,

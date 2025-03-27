@@ -7,6 +7,7 @@ import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { API_URL } from '../config/api'
 import secureStorage from '../config/secureStorage'
+import FastImage from 'react-native-fast-image'
 
 export default function AddEditProductScreen({ route, navigation }) {
   const [name, setName] = useState("")
@@ -231,9 +232,19 @@ export default function AddEditProductScreen({ route, navigation }) {
         </Text>
       </TouchableOpacity>
 
+      // Replace the Image component in the render section with FastImage
       {image && (
         <View style={styles.imageContainer}>
-          <Image source={{ uri: image }} style={styles.image} />
+          <FastImage
+            source={{ 
+              uri: image,
+              // Add cache control
+              priority: FastImage.priority.normal,
+              cache: FastImage.cacheControl.immutable
+            }}
+            style={styles.image}
+            resizeMode={FastImage.resizeMode.cover}
+          />
           <TouchableOpacity 
             style={styles.removeButton}
             onPress={() => {
