@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from '../config/secureStorage';
 
 export default function WelcomeScreen({ navigation }) {
     const handleSkip = async () => {
         try {
-            await AsyncStorage.setItem('skipLogin', 'true');
-            navigation.replace('Home');
+            await secureStorage.setItem('skipLogin', 'true');
+    navigation.replace('Home');
         } catch (error) {
             console.error('Error:', error);
         }

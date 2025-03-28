@@ -12,9 +12,10 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import axios from 'axios';
 import { API_URL } from '../config/api';
+import secureStorage from '../config/secureStorage';
 
 export default function AuthScreen({ navigation, route }) {
     const [name, setName] = useState('');
@@ -76,7 +77,9 @@ export default function AuthScreen({ navigation, route }) {
                 name: !isExistingUser ? name : undefined
             });
 
-            await AsyncStorage.setItem('userData', JSON.stringify(response.data));
+            // Replace AsyncStorage with secureStorage
+            await secureStorage.setObject('userData', response.data);
+            
             if (route.params?.returnScreen) {
                 navigation.replace(route.params.returnScreen, {
                     productId: route.params.productId

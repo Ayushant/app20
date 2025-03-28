@@ -12,7 +12,7 @@ import {
     Alert,
     ActivityIndicator
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from '../config/secureStorage';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL, BASE_URL } from '../config/api';
 import { useDispatch } from 'react-redux';
@@ -54,9 +54,8 @@ const HomeScreen = ({ navigation }) => {
 
     const checkAuthAndLocation = async () => {
         try {
-            const userDataString = await AsyncStorage.getItem('userData');
-            if (userDataString) {
-                const userData = JSON.parse(userDataString);
+            const userData = await secureStorage.getObject('userData');
+            if (userData) {
                 setUserData(userData);
                 
                 // Check if we already have location
@@ -111,7 +110,7 @@ const HomeScreen = ({ navigation }) => {
                 });
 
                 if (response.ok) {
-                    // Update local storage
+                    // Update secure storage
                     const updatedUserData = {
                         ...userData,
                         location: {
@@ -119,7 +118,7 @@ const HomeScreen = ({ navigation }) => {
                             coordinates: [longitude, latitude]
                         }
                     };
-                    await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+                    await secureStorage.setObject('userData', updatedUserData);
                     setUserData(updatedUserData);
                 }
             }
@@ -166,8 +165,8 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const handleAddToCart = async (product) => {
-        const userDataString = await AsyncStorage.getItem('userData');
-        if (!userDataString) {
+        const userData = await secureStorage.getObject('userData');
+        if (!userData) {
             Alert.alert(
                 'Sign in Required',
                 'Please sign in to add items to cart',

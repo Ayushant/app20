@@ -12,7 +12,7 @@ import {
   ScrollView
 } from 'react-native';
 import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from '../config/secureStorage';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,7 +76,7 @@ const LocationScreen = ({ navigation, route }) => {
   const saveLocation = async () => {
     try {
       setLoading(true);
-      const userData = await AsyncStorage.getItem('userData');
+      const userData = await secureStorage.getObject('userData');
       if (!userData) {
         navigation.replace('Auth', { returnScreen: 'Location' });
         return;
@@ -105,11 +105,9 @@ const LocationScreen = ({ navigation, route }) => {
         }
       );
 
-      // Store location in AsyncStorage
-      const updatedUserData = JSON.parse(userData);
-      updatedUserData.address = formattedAddress;
-      updatedUserData.location = locationData.location;
-      await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+      // Update stored user data
+      const updatedUserData = { ...userData, address: formattedAddress, location: locationData.location };
+      await secureStorage.setObject('userData', updatedUserData);
 
       // Navigate back or to home
       if (route.params?.returnScreen) {
@@ -279,4 +277,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LocationScreen; 
+export default LocationScreen;

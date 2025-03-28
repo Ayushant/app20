@@ -19,25 +19,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import FastImage from 'react-native-fast-image';
 
+import secureStorage from '../config/secureStorage';
+
 const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
 
+  // Replace import
+
+  
+  // In fetchOrders
   const fetchOrders = async () => {
     try {
-      const userData = await AsyncStorage.getItem('userData');
+      const userData = await secureStorage.getObject('userData');
       if (!userData) {
         navigation.replace('Auth', { returnScreen: 'Orders' });
         return;
       }
-
-      const { token } = JSON.parse(userData);
+  
+      const { token } = userData;
       const response = await axios.get(`${API_URL}/buyer/orders`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
+  
       setOrders(response.data);
     } catch (error) {
       console.error('Error fetching orders:', error);
