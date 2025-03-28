@@ -25,6 +25,9 @@ router.post('/riders', upload.single('identityPicture'), adminController.addRide
 
 router.delete('/riders/:id', adminController.deleteRider);
 
+// Add this new route with the existing protected routes
+router.get('/riders', adminController.getRiders);
+
 
 
 module.exports = router;
