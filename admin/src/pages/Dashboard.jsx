@@ -195,7 +195,7 @@ export default function Dashboard() {
                     <p>Address: {order.seller.address}</p>
                   </div>
                 </div>
-                <div className="mt-4">
+                {/* <div className="mt-4">
                   <h3 className="font-medium">Order Details</h3>
                   <ul className="list-disc list-inside">
                     {order.products.map((product, index) => (
@@ -206,7 +206,7 @@ export default function Dashboard() {
                   </ul>
                   <p className="mt-2">Total Amount: ₹{order.totalPrice}</p>
                   <p>Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
-                </div>
+                </div> */}
                 <div className="mt-4 flex justify-end">
                   <button
                     onClick={() => handleMarkOrderDone(order.orderId)}
