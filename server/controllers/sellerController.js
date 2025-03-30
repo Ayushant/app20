@@ -96,6 +96,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const cloudinary = require('../config/cloudinary');
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
@@ -260,7 +261,16 @@ exports.uploadProduct = async (req, res) => {
         const sellerId = decoded.id;
 
         const { name, description, price, category, isGeneral } = req.body;
-        const image = req.file ? req.file.path : null;
+        let imageUrl = null;
+
+        // Upload image to Cloudinary if provided
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(req.file.path);
+            imageUrl = result.secure_url;
+            
+            // Delete local file after upload
+            fs.unlinkSync(req.file.path);
+        }
 
         const newProduct = new Product({
             name,
@@ -268,13 +278,60 @@ exports.uploadProduct = async (req, res) => {
             price,
             category,
             sellerId,
-            image,
+            image: imageUrl,
             isGeneral: isGeneral === 'true' || isGeneral === true
         });
 
         await newProduct.save();
         res.status(201).json(newProduct);
     } catch (err) {
+        // Delete local file if exists and upload failed
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// Modify editProduct function
+exports.editProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, price, description, category, isGeneral } = req.body;
+
+        const updateData = {
+            name,
+            price,
+            description,
+            category,
+            isGeneral: isGeneral === 'true' || isGeneral === true
+        };
+
+        // If a new image is uploaded
+        if (req.file) {
+            const result = await cloudinary.uploader.upload(req.file.path);
+            updateData.image = result.secure_url;
+            
+            // Delete local file after upload
+            fs.unlinkSync(req.file.path);
+        }
+
+        const updatedProduct = await Product.findByIdAndUpdate(
+            id,
+            updateData,
+            { new: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        res.status(200).json(updatedProduct);
+    } catch (err) {
+        // Delete local file if exists and upload failed
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
         res.status(500).json({ error: err.message });
     }
 };
@@ -601,3 +658,5 @@ exports.uploadExcel = multer({
     storage: storage,
     fileFilter: excelFilter
 }).single('file')
+
+

@@ -8,81 +8,74 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const Product = require('../models/productModel');
+const { generateStaticMapUrl, getRouteMap } = require('../utils/olaMapsUtil');
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
-
-// Admin Controllers
 const adminController = {
-  async regsister(req, res) {
-    try {
-      const { email, password } = req.body;
-      // console.log(email, password);
-      // Check if admin already exists
-      const existingAdmin = await Admin.findOne({ email });
-      if (existingAdmin) {
-        return res.status(400).json({ error: 'Email already registered' });
-      }
+    async regsister(req, res) {
+        try {
+            const { email, password } = req.body;
+            // console.log(email, password);
+            // Check if admin already exists
+            const existingAdmin = await Admin.findOne({ email });
+            if (existingAdmin) {
+                return res.status(400).json({ error: 'Email already registered' });
+            }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+            const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create new admin instance
-      const admin = new Admin({
-        email,
-        password: hashedPassword
-      });
+            // Create new admin instance
+            const admin = new Admin({
+                email,
+                password: hashedPassword
+            });
 
-      // Save the admin
-      await admin.save();
+            // Save the admin
+            await admin.save();
 
-      const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET || 'your_jwt_secret_key', {
-        expiresIn: '24h'
-      });
+            const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET || 'your_jwt_secret_key', {
+                expiresIn: '24h'
+            });
 
-      res.status(201).json({
-        token,
-        admin: {
-          id: admin._id,
-          email: admin.email,
+            res.status(201).json({
+                token,
+                admin: {
+                    id: admin._id,
+                    email: admin.email,
+                }
+            });
+        } catch (error) {
+            console.error('Admin registration error:', error);
+            res.status(500).json({ error: error.message });
         }
-      });
-    } catch (error) {
-      console.error('Admin registration error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-  // Admin Authentication
-  async login(req, res) {
-    try {
-      const { email, password } = req.body;
-      const admin = await Admin.findOne({ email });
-      if(!admin) {
-        return res.status(401).json({ error: 'User Not found' });
-      }
-      const isPasswordValid = await bcrypt.compare(password, admin.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Invalid password' });
-      }
+    },
+    // Admin Authentication
+    async login(req, res) {
+        try {
+            const { email, password } = req.body;
+            const admin = await Admin.findOne({ email });
+            if(!admin) {
+                return res.status(401).json({ error: 'User Not found' });
+            }
+            const isPasswordValid = await bcrypt.compare(password, admin.password);
+            if (!isPasswordValid) {
+                return res.status(401).json({ error: 'Invalid password' });
+            }
 
-      const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET || 'your_jwt_secret_key', {
-        expiresIn: '24h'
-      });
+            const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET || 'your_jwt_secret_key', {
+                expiresIn: '24h'
+            });
 
-      res.json({
-        token,
-        admin: {
-          id: admin._id,
-          email: admin.email,
+            res.json({
+                token,
+                admin: {
+                    id: admin._id,
+                    email: admin.email,
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
+    },
 
 
 async getSeller(req, res) {
@@ -186,6 +179,78 @@ async getSeller(req, res) {
       res.status(400).json({ error: error.message });
     }
   },
+  async getRiders(req, res) {
+    try {
+      const riders = await Rider.find().sort({ createdAt: -1 });
+      res.status(200).json(riders);
+    } catch (error) {
+      console.error('Error fetching riders:', error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+  async getDeliveryRoute(req, res) {
+      try {
+          const { orderId } = req.params;
+          const order = await Order.findById(orderId)
+              .populate('sellerId', 'shopName phoneNumber location')
+              .populate('buyerId', 'name phoneNumber');
+
+          if (!order) {
+              return res.status(404).json({ error: 'Order not found' });
+          }
+
+          // Generate static maps for both locations
+          const pickupMapUrl = generateStaticMapUrl(order.sellerId.location.coordinates);
+          const dropMapUrl = generateStaticMapUrl(order.deliveryDetails.dropLocation.coordinates);
+          const routeMapUrl = await getRouteMap(
+              order.sellerId.location.coordinates,
+              order.deliveryDetails.dropLocation.coordinates
+          );
+
+          const deliveryInstructions = {
+              orderId: order._id,
+              step1: {
+                  type: 'PICKUP',
+                  location: {
+                      coordinates: order.sellerId.location.coordinates,
+                      address: order.sellerId.location.address,
+                      mapUrl: pickupMapUrl
+                  },
+                  contact: {
+                      name: order.sellerId.shopName,
+                      phone: order.sellerId.phoneNumber
+                  },
+                  instructions: 'Collect the order from the seller'
+              },
+              step2: {
+                  type: 'DELIVERY',
+                  location: {
+                      coordinates: order.deliveryDetails.dropLocation.coordinates,
+                      address: order.deliveryDetails.dropLocation.address,
+                      mapUrl: dropMapUrl
+                  },
+                  contact: {
+                      name: order.name,
+                      phone: order.contactNumber
+                  },
+                  instructions: 'Deliver the order to the customer'
+              },
+              routeOverview: {
+                  mapUrl: routeMapUrl,
+                  estimatedDistance: '{{calculate_distance}}', // You can implement distance calculation
+                  orderDetails: {
+                      items: order.products.length,
+                      totalAmount: order.totalPrice
+                  }
+              }
+          };
+
+          res.status(200).json(deliveryInstructions);
+      } catch (error) {
+          console.error('Error generating delivery route:', error);
+          res.status(500).json({ error: error.message });
+      }
+  }
 };
 
 module.exports = adminController;
