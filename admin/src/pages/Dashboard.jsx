@@ -188,11 +188,27 @@ export default function Dashboard() {
                     <p>Name: {order.buyer.name}</p>
                     <p>Address: {order.buyer.address}</p>
                     <p>Phone: {order.buyer.phone}</p>
+                    <a 
+                      href={order.buyer.navigationLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Navigate to Buyer
+                    </a>
                   </div>
                   <div>
                     <h3 className="font-medium">Seller Details</h3>
                     <p>Shop: {order.seller.shopName}</p>
                     <p>Address: {order.seller.address}</p>
+                    <a 
+                      href={order.seller.navigationLink} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Navigate to Seller
+                    </a>
                   </div>
                 </div>
                 {/* <div className="mt-4">

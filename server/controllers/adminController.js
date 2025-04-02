@@ -8,7 +8,8 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const Product = require('../models/productModel');
-const { generateStaticMapUrl, getRouteMap } = require('../utils/olaMapsUtil');
+// const { generateStaticMapUrl, getRouteMap } = require('../utils/olaMapsUtil');
+const { generateStaticMapUrl, getDirectionsUrl, getDistance } = require('../utils/googleMapsUtil');
 
 const adminController = {
     async regsister(req, res) {
@@ -146,12 +147,14 @@ async getSeller(req, res) {
         buyer: {
           name: order.name,
           address: order.address,
-          phone: order.contactNumber
+          phone: order.contactNumber,
+          navigationLink: getDirectionsUrl([order.sellerId.location.coordinates[0], order.sellerId.location.coordinates[1]]) // Link to seller location
         },
         seller: {
           shopName: order.sellerId.shopName,
           address: order.sellerId.location.address,
-          coordinates: order.sellerId.location.coordinates
+          coordinates: order.sellerId.location.coordinates,
+          navigationLink: getDirectionsUrl([order.sellerId.location.coordinates[0], order.sellerId.location.coordinates[1]]) // Link to buyer location
         },
         products: order.products.map(p => ({
           name: p.productId.name,
@@ -193,26 +196,29 @@ async getSeller(req, res) {
           const { orderId } = req.params;
           const order = await Order.findById(orderId)
               .populate('sellerId', 'shopName phoneNumber location')
-              .populate('buyerId', 'name phoneNumber');
+              .populate('buyerId', 'name phoneNumber location');
 
           if (!order) {
               return res.status(404).json({ error: 'Order not found' });
           }
 
-          // Generate static maps for both locations
-          const pickupMapUrl = generateStaticMapUrl(order.sellerId.location.coordinates);
-          const dropMapUrl = generateStaticMapUrl(order.deliveryDetails.dropLocation.coordinates);
-          const routeMapUrl = await getRouteMap(
-              order.sellerId.location.coordinates,
-              order.deliveryDetails.dropLocation.coordinates
-          );
+          const pickupCoords = order.sellerId.location.coordinates;
+          const dropCoords = order.deliveryDetails.dropLocation.coordinates;
+
+          // Get distance and duration from Google Maps
+          const distanceData = await getDistance(pickupCoords, dropCoords);
+          
+          // Generate Google Maps URLs
+          const pickupMapUrl = generateStaticMapUrl(pickupCoords);
+          const dropMapUrl = generateStaticMapUrl(dropCoords);
+          const directionsUrl = getDirectionsUrl(pickupCoords, dropCoords);
 
           const deliveryInstructions = {
               orderId: order._id,
               step1: {
                   type: 'PICKUP',
                   location: {
-                      coordinates: order.sellerId.location.coordinates,
+                      coordinates: pickupCoords,
                       address: order.sellerId.location.address,
                       mapUrl: pickupMapUrl
                   },
@@ -225,19 +231,20 @@ async getSeller(req, res) {
               step2: {
                   type: 'DELIVERY',
                   location: {
-                      coordinates: order.deliveryDetails.dropLocation.coordinates,
+                      coordinates: dropCoords,
                       address: order.deliveryDetails.dropLocation.address,
                       mapUrl: dropMapUrl
                   },
                   contact: {
-                      name: order.name,
-                      phone: order.contactNumber
+                      name: order.buyerId.name,
+                      phone: order.buyerId.phoneNumber
                   },
                   instructions: 'Deliver the order to the customer'
               },
               routeOverview: {
-                  mapUrl: routeMapUrl,
-                  estimatedDistance: '{{calculate_distance}}', // You can implement distance calculation
+                  directionsUrl,
+                  estimatedDistance: distanceData?.distance?.text || 'N/A',
+                  estimatedDuration: distanceData?.duration?.text || 'N/A',
                   orderDetails: {
                       items: order.products.length,
                       totalAmount: order.totalPrice
