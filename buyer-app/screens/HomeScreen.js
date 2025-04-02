@@ -251,12 +251,12 @@ const HomeScreen = ({ navigation }) => {
             <Image 
                 source={{ 
                     uri: item.image 
-                        ? `${BASE_URL}/${item.image}`
+                        ? item.image
                         : 'https://via.placeholder.com/150'
                 }}
                 style={styles.productImage}
                 accessible={true}
-                accessibilityLabel={`Image of ${item.name}`}
+                accessibilityLabel={item.name ? `Image of ${item.name}` : 'Product image'}
             />
             <View style={styles.productInfo}>
                 <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>

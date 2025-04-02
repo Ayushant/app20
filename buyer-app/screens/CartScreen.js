@@ -24,8 +24,8 @@ import { updateQuantity, clearCart } from '../store/slices/cartSlice';
 
 // API_URL='http://172.31.41.234:8000/api/'
 
-// Add import
-import FastImage from 'react-native-fast-image';
+// Remove this line
+// import FastImage from 'react-native-fast-image';
 
 const AddressModal = ({ visible, onClose, onSubmit }) => {
   const [address, setAddress] = useState('');
@@ -265,8 +265,9 @@ const CartScreen = ({ navigation }) => {
               {cartItems.map((item, index) => (
                 <View key={index} style={styles.cartItem}>
                   <Image 
-                    source={{ uri: `${API_URL}/${item.image}` }}
-                    style={styles.itemImage}
+                    source={{ uri: item.image }} // Updated: Using direct Cloudinary URL
+                    style={styles.productImage}
+                    resizeMode="cover"
                   />
                   <View style={styles.itemDetails}>
                     <Text style={styles.itemName}>{item.name}</Text>
@@ -543,14 +544,16 @@ const styles = StyleSheet.create({
 export default CartScreen;
 
 // Replace product image rendering in renderCartItem
-{item.image && (
-  <FastImage
-    source={{ 
-      uri: `${API_URL}/${item.image}`,
-      priority: FastImage.priority.normal,
-      cache: FastImage.cacheControl.immutable
-    }}
-    style={styles.productImage}
-    resizeMode={FastImage.resizeMode.cover}
-  />
-)}
+// {item.image && (
+//   <FastImage
+//     source={{ 
+//       uri: `${API_URL}/${item.image}`,
+//       priority: FastImage.priority.normal,
+//       cache: FastImage.cacheControl.immutable
+//     }}
+//     style={styles.productImage}
+//     resizeMode={FastImage.resizeMode.cover}
+//   />
+// )}
+
+// Remove the FastImage code block at the bottom of the file

@@ -12,7 +12,6 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import secureStorage from '../config/secureStorage';
@@ -20,12 +19,12 @@ import secureStorage from '../config/secureStorage';
 export default function AuthScreen({ navigation, route }) {
     const [name, setName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [otp, setOtp] = useState('');
-    const [otpSent, setOtpSent] = useState(false);
+    const [confirmPhoneNumber, setConfirmPhoneNumber] = useState('');
+    const [verificationStep, setVerificationStep] = useState(1); // 1: initial, 2: confirm
     const [isExistingUser, setIsExistingUser] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const handleSendOTP = async () => {
+    const handleVerifyPhone = async () => {
         if (!phoneNumber || phoneNumber.length !== 10) {
             Alert.alert('Error', 'Please enter a valid 10-digit phone number');
             return;
@@ -34,50 +33,37 @@ export default function AuthScreen({ navigation, route }) {
         try {
             setLoading(true);
             const formattedPhone = '+91' + phoneNumber;
-            console.log('Sending OTP to:', formattedPhone);
             
-            const response = await axios.post(`${API_URL}/buyer/send-otp`, {
+            const response = await axios.post(`${API_URL}/buyer/verify-phone`, {
                 phoneNumber: formattedPhone
             });
 
-            console.log('OTP Response:', response.data);
-
             setIsExistingUser(response.data.isExistingUser);
-            
-            // Move name validation here before setting otpSent
-            // if (!response.data.isExistingUser) {
-            //     if (!name.trim()) {
-            //         Alert.alert('Error', 'Please enter your name to register');
-            //         setLoading(false);
-            //         return;
-            //     }
-            // }
-
-            setOtpSent(true);
-            Alert.alert('Success', 'OTP sent successfully');
+            setVerificationStep(2);
         } catch (error) {
-            console.error('Error sending OTP:', error.response?.data || error.message);
-            Alert.alert('Error', 'Failed to send OTP. Please try again.');
+            console.error('Error:', error);
+            Alert.alert('Error', 'Failed to verify phone number. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyOTP = async () => {
-        if (!otp || otp.length !== 6) {
-            Alert.alert('Error', 'Please enter a valid OTP');
+    const handleConfirmPhone = async () => {
+        if (phoneNumber !== confirmPhoneNumber) {
+            Alert.alert('Error', 'Phone numbers do not match');
             return;
         }
 
         try {
             setLoading(true);
-            const response = await axios.post(`${API_URL}/buyer/verify-otp`, {
-                phoneNumber: '+91' + phoneNumber,
-                otp,
+            const formattedPhone = '+91' + phoneNumber;
+            
+            const response = await axios.post(`${API_URL}/buyer/confirm-phone`, {
+                phoneNumber: formattedPhone,
+                confirmPhoneNumber: '+91' + confirmPhoneNumber,
                 name: !isExistingUser ? name : undefined
             });
 
-            // Replace AsyncStorage with secureStorage
             await secureStorage.setObject('userData', response.data);
             
             if (route.params?.returnScreen) {
@@ -89,7 +75,7 @@ export default function AuthScreen({ navigation, route }) {
             }
         } catch (error) {
             console.error('Error:', error);
-            Alert.alert('Error', isExistingUser ? 'Invalid OTP' : 'Registration failed');
+            Alert.alert('Error', isExistingUser ? 'Verification failed' : 'Registration failed');
         } finally {
             setLoading(false);
         }
@@ -103,7 +89,8 @@ export default function AuthScreen({ navigation, route }) {
             >
                 <View style={styles.innerContainer}>
                     <Text style={styles.title}>Welcome to FairPlace-Med</Text>
-                    {!otpSent ? (
+                    
+                    {verificationStep === 1 ? (
                         <>
                             <View style={styles.inputContainer}>
                                 <Text style={styles.prefix}>+91</Text>
@@ -118,48 +105,40 @@ export default function AuthScreen({ navigation, route }) {
                             </View>
                             <TouchableOpacity
                                 style={[styles.button, loading && styles.disabledButton]}
-                                onPress={handleSendOTP}
+                                onPress={handleVerifyPhone}
                                 disabled={loading}
                             >
                                 {loading ? (
                                     <ActivityIndicator color="#fff" />
                                 ) : (
-                                    <Text style={styles.buttonText}>Send OTP</Text>
+                                    <Text style={styles.buttonText}>Continue</Text>
                                 )}
                             </TouchableOpacity>
                         </>
                     ) : (
                         <>
                             {!isExistingUser && (
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Full Name"
-                                        value={name}
-                                        onChangeText={setName}
-                                    />
-                                </View>
-                            )}
-                            <View style={styles.inputContainer}>
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Enter OTP"
-                                    value={otp}
-                                    onChangeText={setOtp}
-                                    keyboardType="numeric"
-                                    maxLength={6}
+                                    placeholder="Your Name"
+                                    value={name}
+                                    onChangeText={setName}
+                                />
+                            )}
+                            <View style={styles.inputContainer}>
+                                <Text style={styles.prefix}>+91</Text>
+                                <TextInput
+                                    style={[styles.phoneInput]}
+                                    placeholder="Confirm Phone Number"
+                                    value={confirmPhoneNumber}
+                                    onChangeText={setConfirmPhoneNumber}
+                                    keyboardType="phone-pad"
+                                    maxLength={10}
                                 />
                             </View>
                             <TouchableOpacity
                                 style={[styles.button, loading && styles.disabledButton]}
-                                onPress={() => {
-                                    if (!isExistingUser && !name.trim()) {
-                                        Alert.alert('Error', 'Please enter your name to register');
-                                        return;
-                                    }
-                                    Keyboard.dismiss();
-                                    handleVerifyOTP();
-                                }}
+                                onPress={handleConfirmPhone}
                                 disabled={loading}
                             >
                                 {loading ? (

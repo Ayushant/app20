@@ -16,8 +16,9 @@ import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
 import secureStorage from '../config/secureStorage';
+// Remove these lines
 // Add import
-import FastImage from 'react-native-fast-image'
+// import FastImage from 'react-native-fast-image'
 
 const OrdersScreen = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
@@ -129,13 +130,13 @@ const OrdersScreen = ({ navigation }) => {
     }
   };
 
+  // Replace prescription image component
   const renderPrescriptionImage = (prescription) => {
     if (!prescription) return null;
-
-    // Get the correct image URL by removing 'uploads/' if it exists in the path
+  
     const prescriptionPath = prescription.replace('uploads/', '');
     const imageUrl = `${API_URL}/uploads/prescriptions/${prescriptionPath}`;
-
+  
     return (
       <TouchableOpacity
         onPress={() => setSelectedImage(imageUrl)}
@@ -144,6 +145,7 @@ const OrdersScreen = ({ navigation }) => {
         <Image
           source={{ uri: imageUrl }}
           style={styles.prescriptionThumbnail}
+          resizeMode="cover"
         />
         <Text style={styles.viewPrescriptionText}>View Prescription</Text>
       </TouchableOpacity>
@@ -375,14 +377,15 @@ const styles = StyleSheet.create({
 
 export default OrdersScreen;
 
+// Remove the FastImage usage at the bottom of the file
 // Update prescription image rendering
-<FastImage
-  source={{ 
-    uri: imageUrl,
-    priority: FastImage.priority.normal,
-    cache: FastImage.cacheControl.immutable
-  }}
-  style={styles.prescriptionThumbnail}
-  resizeMode={FastImage.resizeMode.cover}
-/>
+// <FastImage
+//   source={{ 
+//     uri: imageUrl,
+//     priority: FastImage.priority.normal,
+//     cache: FastImage.cacheControl.immutable
+//   }}
+//   style={styles.prescriptionThumbnail}
+//   resizeMode={FastImage.resizeMode.cover}
+// />
 

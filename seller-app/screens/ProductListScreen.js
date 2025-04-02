@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useFocusEffect } from '@react-navigation/native'
 import { API_URL } from '../config/api'
 import secureStorage from '../config/secureStorage'
-import FastImage from 'react-native-fast-image'
+
 
 export default function ProductListScreen({ navigation }) {
   const [products, setProducts] = useState([])
@@ -182,14 +182,10 @@ export default function ProductListScreen({ navigation }) {
     >
       <View style={styles.productInfo}>
         {item.image && (
-          <FastImage
-            source={{ 
-              uri: `${API_URL}/${item.image}`,
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable
-            }}
+          <Image
+            source={{ uri: item.image }} // Updated: Using direct Cloudinary URL
             style={styles.productImage}
-            resizeMode={FastImage.resizeMode.cover}
+            resizeMode="cover"
           />
         )}
         <View style={styles.productDetails}>
@@ -391,4 +387,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 })
+
+const ProductItem = ({ product }) => (
+  <TouchableOpacity
+    style={styles.productItem}
+    onPress={() => handleEditProduct(product)}
+  >
+    <Image
+      source={{ uri: `${API_URL}/${product.image}` }}
+      style={styles.productImage}
+      resizeMode="cover"
+    />
+    {/* ... rest of the ProductItem component ... */}
+  </TouchableOpacity>
+);
 

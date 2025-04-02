@@ -2,26 +2,82 @@ const Product = require('../models/productModel');
 const Order = require('../models/orderModel');
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
-const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
 const Seller = require('../models/sellerModel');
 const cloudinary = require('../config/cloudinary');
 
-// Initialize AWS SNS client
-const snsClient = new SNSClient({
-    region: 'ap-south-1',  // AWS Mumbai region for India
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+// Replace sendOTP with verifyPhone
+exports.verifyPhone = async (req, res) => {
+    try {
+        const { phoneNumber } = req.body;
+        const user = await User.findOne({ phoneNumber });
+        
+        res.status(200).json({
+            isExistingUser: !!user,
+            message: 'Phone number checked successfully'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-});
-
-// Generate OTP
-const generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Store OTP temporarily (In production, use Redis or similar)
-const otpStore = new Map();
+// Replace verifyOTP with confirmPhone
+exports.confirmPhone = async (req, res) => {
+    try {
+        const { phoneNumber, confirmPhoneNumber, name } = req.body;
+
+        if (phoneNumber !== confirmPhoneNumber) {
+            return res.status(400).json({ error: 'Phone numbers do not match' });
+        }
+
+        let user = await User.findOne({ phoneNumber });
+
+        if (user) {
+            // Existing user - generate token
+            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+                expiresIn: '30d'
+            });
+
+            return res.status(200).json({
+                token,
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    phoneNumber: user.phoneNumber,
+                    isVerified: user.isVerified
+                }
+            });
+        }
+
+        // New user - create account
+        if (!name) {
+            return res.status(400).json({ error: 'Name is required for registration' });
+        }
+
+        user = new User({
+            name,
+            phoneNumber,
+            isVerified: true
+        });
+
+        await user.save();
+
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+            expiresIn: '30d'
+        });
+
+        res.status(201).json({
+            token,
+            user: {
+                id: user._id,
+                name: user.name,
+                phoneNumber: user.phoneNumber,
+                isVerified: true
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
 // Fetch products
 exports.getProducts = async (req, res) => {
@@ -163,47 +219,28 @@ exports.sendOTP = async (req, res) => {
         // Store OTP with phone number
         otpStore.set(phoneNumber, {
             otp,
-            expiryTime: Date.now() + 5 * 60 * 1000
+            createdAt: new Date()
         });
 
-        // Prepare SNS message
-        const params = {
-            Message: `Your FairPlace-Med verification code is: ${otp}`,
-            PhoneNumber: phoneNumber,
-            MessageAttributes: {
-                'AWS.SNS.SMS.SMSType': {
-                    DataType: 'String',
-                    StringValue: 'Transactional'
-                }
-            }
-        };
-        
-
-        // Send SMS
+        // Send OTP via Twilio
         try {
-            console.log('Sending SMS with params:', params);
-            const result = await snsClient.send(new PublishCommand(params));
-            console.log('SMS sent successfully:', result);
-            
-            // Check if user exists
-            const userExists = await User.findOne({ phoneNumber });
-            
-            res.status(200).json({
-                message: 'OTP sent successfully',
-                isExistingUser: !!userExists,
-                // For development only, remove in production
-                otp: process.env.NODE_ENV === 'development' ? otp : undefined
+            await twilioClient.messages.create({
+                body: `Your FairPlace-Med verification code is: ${otp}`,
+                from: twilioPhoneNumber,
+                to: phoneNumber
             });
-        } catch (snsError) {
-            console.error('SNS Error:', snsError);
-            throw new Error(`Failed to send SMS: ${snsError.message}`);
+            
+            res.status(200).json({ 
+                message: 'OTP sent successfully',
+                phoneNumber
+            });
+        } catch (twilioError) {
+            console.error('Twilio SMS error:', twilioError);
+            res.status(500).json({ error: 'Failed to send OTP. Please try again.' });
         }
     } catch (error) {
-        console.error('Error in sendOTP:', error);
-        res.status(500).json({ 
-            error: 'Failed to send OTP',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+        console.error('Send OTP error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 };
 

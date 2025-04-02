@@ -7,7 +7,8 @@ import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { API_URL } from '../config/api'
 import secureStorage from '../config/secureStorage'
-import FastImage from 'react-native-fast-image'
+// Remove this line
+// import FastImage from 'react-native-fast-image'
 
 export default function AddEditProductScreen({ route, navigation }) {
   const [name, setName] = useState("")
@@ -28,9 +29,9 @@ export default function AddEditProductScreen({ route, navigation }) {
       setDescription(product.description || "")
       setCategory(product.category || "")
       setIsGeneral(product.isGeneral || false)
-      // Set image if available
+      // Updated image setting
       if (product.image) {
-        setImage(`${API_URL}/${product.image}`)
+        setImage(product.image) // Using direct Cloudinary URL
       }
     }
     loadToken()
@@ -232,18 +233,13 @@ export default function AddEditProductScreen({ route, navigation }) {
         </Text>
       </TouchableOpacity>
 
-      // Replace the Image component in the render section with FastImage
+      {/* Image preview section */}
       {image && (
         <View style={styles.imageContainer}>
-          <FastImage
-            source={{ 
-              uri: image,
-              // Add cache control
-              priority: FastImage.priority.normal,
-              cache: FastImage.cacheControl.immutable
-            }}
+          <Image
+            source={{ uri: image }}
             style={styles.image}
-            resizeMode={FastImage.resizeMode.cover}
+            resizeMode="cover"
           />
           <TouchableOpacity 
             style={styles.removeButton}

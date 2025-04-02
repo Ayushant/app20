@@ -17,7 +17,6 @@ import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import FastImage from 'react-native-fast-image';
 
 import secureStorage from '../config/secureStorage';
 
@@ -108,21 +107,17 @@ const OrdersScreen = ({ navigation }) => {
         onPress={() => setSelectedImage(imageUrl)}
         style={styles.prescriptionContainer}
       >
-        <FastImage
-          source={{ 
-            uri: imageUrl,
-            priority: FastImage.priority.normal,
-            cache: FastImage.cacheControl.immutable
-          }}
+        <Image
+          source={{ uri: imageUrl }}
           style={styles.prescriptionThumbnail}
-          resizeMode={FastImage.resizeMode.cover}
+          resizeMode="cover"
         />
         <Text style={styles.viewPrescriptionText}>View Prescription</Text>
       </TouchableOpacity>
     );
   };
   
-  // Replace the modal image preview
+  // Update the modal image preview
   const ImagePreviewModal = () => (
     <Modal
       visible={!!selectedImage}
@@ -136,14 +131,10 @@ const OrdersScreen = ({ navigation }) => {
         >
           <Ionicons name="close" size={30} color="white" />
         </TouchableOpacity>
-        <FastImage
-          source={{ 
-            uri: selectedImage,
-            priority: FastImage.priority.high,
-            cache: FastImage.cacheControl.immutable
-          }}
+        <Image
+          source={{ uri: selectedImage }}
           style={styles.fullImage}
-          resizeMode={FastImage.resizeMode.contain}
+          resizeMode="contain"
         />
       </View>
     </Modal>
@@ -183,7 +174,9 @@ const OrdersScreen = ({ navigation }) => {
       
       <View style={styles.sellerInfo}>
         <Ionicons name="business-outline" size={16} color="#666" />
-        <Text style={styles.sellerName}>{item.sellerId.shopName}</Text>
+        <Text style={styles.sellerName}>
+          {item.sellerId?.shopName || 'Shop not available'}
+        </Text>
       </View>
       
       {item.products.map((product, index) => (

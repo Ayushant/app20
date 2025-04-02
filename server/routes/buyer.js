@@ -3,8 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const {auth} = require('../middleware/auth');
 const {
-    sendOTP,
-    verifyOTP,
+    verifyPhone,
+    confirmPhone,
     placeOrder,
     getOrders,
     getAllProducts,
@@ -15,8 +15,8 @@ const {
 const upload = multer({ dest: 'uploads/prescriptions/' });
 
 // Public routes (no auth required)
-router.post('/send-otp', sendOTP);
-router.post('/verify-otp', verifyOTP);
+router.post('/verify-phone', verifyPhone);
+router.post('/confirm-phone', confirmPhone);
 router.get('/products', getAllProducts);
 
 // Protected routes (auth required)
