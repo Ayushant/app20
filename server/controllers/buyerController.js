@@ -4,6 +4,7 @@ const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const Seller = require('../models/sellerModel');
 const cloudinary = require('../config/cloudinary');
+const fs = require('fs');  // Add this line at the top with other imports
 
 // Replace sendOTP with verifyPhone
 exports.verifyPhone = async (req, res) => {
@@ -53,10 +54,16 @@ exports.confirmPhone = async (req, res) => {
             return res.status(400).json({ error: 'Name is required for registration' });
         }
 
+        // Create new user with default location
         user = new User({
             name,
             phoneNumber,
-            isVerified: true
+            isVerified: true,
+            location: {
+                type: 'Point',
+                coordinates: [0, 0], // Default coordinates
+                address: '' // Default empty address
+            }
         });
 
         await user.save();
@@ -71,11 +78,16 @@ exports.confirmPhone = async (req, res) => {
                 id: user._id,
                 name: user.name,
                 phoneNumber: user.phoneNumber,
-                isVerified: true
+                isVerified: true,
+                location: user.location
             }
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('Registration error:', error);
+        res.status(500).json({ 
+            error: 'Failed to register user',
+            details: error.message 
+        });
     }
 };
 
@@ -92,25 +104,21 @@ exports.getProducts = async (req, res) => {
 };
 
 // Place a new order
-// Modify placeOrder function
+// Add this helper function at the top of the file
+const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+};
+
+// Modify the placeOrder function
 exports.placeOrder = async (req, res) => {
     try {
         const { items, totalPrice, deliveryCharge, platformFee, address, name } = req.body;
         let prescriptionUrl = null;
 
-        // Upload prescription to Cloudinary if provided
-        if (req.file) {
-            const result = await cloudinary.uploader.upload(req.file.path);
-            prescriptionUrl = result.secure_url;
-            
-            // Delete local file after upload
-            fs.unlinkSync(req.file.path);
-        }
-
-        // Validate if user is authenticated
-        if (!req.user) {
-            return res.status(401).json({ error: 'Authentication required' });
-        }
+        // Ensure uploads directory exists
+        ensureDirectoryExists('uploads/prescriptions');
 
         // Parse items from JSON string
         const parsedItems = JSON.parse(items);
@@ -120,10 +128,36 @@ exports.placeOrder = async (req, res) => {
 
         // Check if any product requires prescription
         const requiresPrescription = parsedItems.some(item => !item.isGeneral);
-        if (requiresPrescription && !prescription) {
-            return res.status(400).json({ 
-                error: 'Prescription is required for prescribed medicines' 
-            });
+        
+        // Handle prescription upload if required
+        if (requiresPrescription) {
+            if (!req.file) {
+                return res.status(400).json({ 
+                    error: 'Prescription is required for prescribed medicines' 
+                });
+            }
+
+            try {
+                const result = await cloudinary.uploader.upload(req.file.path);
+                prescriptionUrl = result.secure_url;
+            } catch (uploadError) {
+                console.error('Cloudinary upload error:', uploadError);
+                throw new Error('Failed to upload prescription');
+            } finally {
+                // Safely delete the temporary file
+                try {
+                    if (fs.existsSync(req.file.path)) {
+                        fs.unlinkSync(req.file.path);
+                    }
+                } catch (unlinkError) {
+                    console.error('Error deleting temporary file:', unlinkError);
+                }
+            }
+        }
+
+        // Validate if user is authenticated
+        if (!req.user) {
+            return res.status(401).json({ error: 'Authentication required' });
         }
 
         // Get the first product to determine the seller
@@ -157,7 +191,7 @@ exports.placeOrder = async (req, res) => {
                 quantity: item.quantity,
                 requiresPrescription: !item.isGeneral
             })),
-            prescription: prescriptionUrl,
+            prescription: prescriptionUrl, // Use the uploaded prescription URL
             totalPrice: totalPrice,
             deliveryCharge: deliveryCharge || 0,
             platformFee: platformFee || 0,
@@ -186,9 +220,13 @@ exports.placeOrder = async (req, res) => {
             orderId: newOrder._id
         });
     } catch (error) {
-        // Delete local file if exists and upload failed
-        if (req.file) {
-            fs.unlinkSync(req.file.path);
+        // Safely cleanup temporary file in case of error
+        if (req.file && fs.existsSync(req.file.path)) {
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+                console.error('Error deleting temporary file:', unlinkError);
+            }
         }
         console.error('Order placement error:', error);
         res.status(500).json({ error: 'Failed to place order' });

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const sellerSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
+    //todo phone no
     password: { type: String, required: true },
     shopName: { type: String, required: true },
     gstNumber: { type: String, required: true },

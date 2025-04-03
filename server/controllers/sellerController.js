@@ -184,47 +184,47 @@ exports.loginSeller = async (req, res) => {
     }
 };
 
-// Update Seller Profile (including location)
-exports.updateSellerProfile = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, shopName, location } = req.body;
+// // Update Seller Profile (including location)
+// exports.updateSellerProfile = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { name, shopName, location } = req.body;
 
-        const updateData = {
-            name,
-            shopName
-        };
+//         const updateData = {
+//             name,
+//             shopName
+//         };
 
-        // Update location if provided
-        if (location && location.coordinates && location.address) {
-            updateData.location = {
-                type: 'Point',
-                coordinates: location.coordinates,
-                address: location.address
-            };
-        }
+//         // Update location if provided
+//         if (location && location.coordinates && location.address) {
+//             updateData.location = {
+//                 type: 'Point',
+//                 coordinates: location.coordinates,
+//                 address: location.address
+//             };
+//         }
 
-        const seller = await Seller.findByIdAndUpdate(
-            id,
-            updateData,
-            { new: true }
-        );
+//         const seller = await Seller.findByIdAndUpdate(
+//             id,
+//             updateData,
+//             { new: true }
+//         );
 
-        if (!seller) {
-            return res.status(404).json({ message: 'Seller not found' });
-        }
+//         if (!seller) {
+//             return res.status(404).json({ message: 'Seller not found' });
+//         }
 
-        res.status(200).json({
-            _id: seller._id,
-            name: seller.name,
-            email: seller.email,
-            shopName: seller.shopName,
-            location: seller.location
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-};
+//         res.status(200).json({
+//             _id: seller._id,
+//             name: seller.name,
+//             email: seller.email,
+//             shopName: seller.shopName,
+//             location: seller.location
+//         });
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// };
 
 // Get Nearby Sellers (for buyer app)
 exports.getNearbySellers = async (req, res) => {

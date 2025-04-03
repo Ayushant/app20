@@ -46,7 +46,7 @@ router.use(authenticateSeller);
 router.get('/dashboard', getDashboardData);
 
 // Profile routes
-router.put('/profile/:id', updateSellerProfile);
+// router.put('/profile/:id', updateSellerProfile);
 router.get('/nearby', getNearbySellers);
 
 // Product routes
