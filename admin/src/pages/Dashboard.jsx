@@ -164,6 +164,14 @@ export default function Dashboard() {
                 <div>
                   <p className="font-medium">{seller.shopName}</p>
                   <p className="text-sm text-gray-600">{seller.email}</p>
+                  <div className="mt-1 text-sm">
+                    <span className="mr-4">
+                      Today's Orders: {seller.todayStats?.totalOrders || 0}
+                    </span>
+                    <span>
+                      Today's Earnings: ₹{seller.todayStats?.totalEarnings || 0}
+                    </span>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleDeleteSeller(seller._id)}

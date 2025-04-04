@@ -82,11 +82,40 @@ const adminController = {
 async getSeller(req, res) {
     try {
       const sellers = await Seller.find();
-      res.status(200).json(sellers);
+      
+      // Get today's start and end date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      // Get orders for each seller
+      const sellersWithStats = await Promise.all(sellers.map(async (seller) => {
+        const todayOrders = await Order.find({
+          sellerId: seller._id,
+          createdAt: {
+            $gte: today,
+            $lt: tomorrow
+          }
+        });
+
+        const totalOrders = todayOrders.length;
+        const totalEarnings = todayOrders.reduce((sum, order) => sum + order.totalPrice, 0);
+
+        return {
+          ...seller.toObject(),
+          todayStats: {
+            totalOrders,
+            totalEarnings
+          }
+        };
+      }));
+
+      res.status(200).json(sellersWithStats);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
-  },
+},
   // Seller Management
   async deleteSeller(req, res) {
     try {
