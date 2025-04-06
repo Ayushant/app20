@@ -145,6 +145,16 @@ const HomeScreen = ({ navigation }) => {
             );
             const data = await response.json();
             if (response.ok) {
+                if (data.length === 0) {
+                    Alert.alert(
+                        'No Nearby Stores',
+                        'Sorry, we couldn\'t find any stores within 3km of your location.',
+                        [
+                            { text: 'Change Location', onPress: () => navigation.navigate('Location') },
+                            { text: 'OK', style: 'cancel' }
+                        ]
+                    );
+                }
                 setProducts(data);
                 setFilteredProducts(data);
             }

@@ -420,56 +420,44 @@ exports.getAllProducts = async (req, res) => {
     try {
         const { longitude, latitude } = req.query;
         
-        // If location is provided, filter by distance
-        if (longitude && latitude) {
-            const maxDistance = 3000; // 3km in meters
-
-            // First find nearby sellers
-            const nearbySellers = await Seller.find({
-                location: {
-                    $near: {
-                        $geometry: {
-                            type: "Point",
-                            coordinates: [parseFloat(longitude), parseFloat(latitude)]
-                        },
-                        $maxDistance: maxDistance
-                    }
+        // Find nearest seller within 3km radius
+        const nearestSeller = await Seller.findOne({
+            location: {
+                $near: {
+                    $geometry: {
+                        type: "Point",
+                        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+                    },
+                    $maxDistance: 3000 // 3km in meters
                 }
-            });
+            }
+        });
 
-            // Get products from nearby sellers
-            const products = await Product.find({
-                sellerId: { $in: nearbySellers.map(seller => seller._id) }
-            }).populate({
-                path: 'sellerId',
-                select: 'shopName location'
-            });
-
-            // Calculate distance for each product's seller
-            const productsWithDistance = products.map(product => {
-                const seller = nearbySellers.find(s => s._id.equals(product.sellerId._id));
-                if (seller && seller.location && seller.location.coordinates) {
-                    const [sellerLong, sellerLat] = seller.location.coordinates;
-                    const distance = calculateDistance(
-                        parseFloat(latitude),
-                        parseFloat(longitude),
-                        sellerLat,
-                        sellerLong
-                    );
-                    return {
-                        ...product.toObject(),
-                        distance: Math.round(distance * 10) / 10 // Round to 1 decimal place
-                    };
-                }
-                return product;
-            });
-
-            return res.status(200).json(productsWithDistance);
+        if (!nearestSeller) {
+            return res.status(200).json([]); // Return empty array if no nearby seller
         }
 
-        // If no location provided, return all products
-        const products = await Product.find().populate('sellerId', 'shopName');
-        res.status(200).json(products);
+        // Get products only from the nearest seller
+        const products = await Product.find({ sellerId: nearestSeller._id })
+            .populate('sellerId', 'shopName location')
+            .sort({ createdAt: -1 });
+
+        // Calculate distance for each product
+        const productsWithDistance = products.map(product => {
+            const distance = calculateDistance(
+                parseFloat(latitude),
+                parseFloat(longitude),
+                product.sellerId.location.coordinates[1],
+                product.sellerId.location.coordinates[0]
+            );
+            
+            return {
+                ...product.toObject(),
+                distance: parseFloat(distance.toFixed(1))
+            };
+        });
+
+        res.status(200).json(productsWithDistance);
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ error: error.message });
