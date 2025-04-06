@@ -81,7 +81,7 @@ const adminController = {
 
 async getSeller(req, res) {
     try {
-      const sellers = await Seller.find();
+      const sellers = await Seller.find().select('name email shopName gstNumber paymentQRCode location');
       
       // Get today's start and end date
       const today = new Date();
@@ -113,6 +113,7 @@ async getSeller(req, res) {
 
       res.status(200).json(sellersWithStats);
     } catch (error) {
+      console.error('Error fetching sellers:', error);
       res.status(400).json({ error: error.message });
     }
 },
