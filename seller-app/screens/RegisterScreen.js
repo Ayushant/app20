@@ -1,11 +1,23 @@
 import { useState } from "react"
-import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, ActivityIndicator } from "react-native"
+import { 
+  View, 
+  TextInput, 
+  Button, 
+  StyleSheet, 
+  Text, 
+  Alert, 
+  ScrollView, 
+  ActivityIndicator,
+  TouchableOpacity,
+  Image
+} from "react-native"
 import axios from "axios"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import LocationPicker from '../components/LocationPicker'
 import { API_URL } from '../config/api';
 import secureStorage from '../config/secureStorage';
 import { isValidEmail, getEmailErrorMessage } from '../config/validation';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("")
@@ -17,6 +29,7 @@ export default function RegisterScreen({ navigation }) {
   const [location, setLocation] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [emailError, setEmailError] = useState("")
+  const [qrCode, setQRCode] = useState(null);
 
   const validateEmail = (text) => {
     setEmail(text);
@@ -24,6 +37,25 @@ export default function RegisterScreen({ navigation }) {
       setEmailError(getEmailErrorMessage());
     } else {
       setEmailError("");
+    }
+  };
+
+  // Add QR code picker function
+  const pickQRCode = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setQRCode(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking QR code:", error);
+      Alert.alert("Error", "Failed to pick QR code image");
     }
   };
 
@@ -65,19 +97,43 @@ export default function RegisterScreen({ navigation }) {
         return;
       }
 
+      if (!qrCode) {
+        Alert.alert("Error", "Please upload your payment QR code");
+        return;
+      }
+
       setIsLoading(true);
-      const response = await axios.post(`${API_URL}/seller/register`, {
-        name,
-        email,
-        password,
-        shopName,
-        gstNumber,
-        location: {
-          type: 'Point',
-          coordinates: location.coordinates,
-          address: location.address
-        }
-      })
+
+      // Create form data for multipart upload
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('shopName', shopName);
+      formData.append('gstNumber', gstNumber);
+      formData.append('location', JSON.stringify({
+        type: 'Point',
+        coordinates: location.coordinates,
+        address: location.address
+      }));
+
+      // Append QR code image
+      const qrCodeUri = qrCode;
+      const qrCodeFilename = qrCodeUri.split('/').pop();
+      const match = /\.(\w+)$/.exec(qrCodeFilename);
+      const type = match ? `image/${match[1]}` : 'image';
+
+      formData.append('qrCode', {
+        uri: qrCodeUri,
+        name: qrCodeFilename,
+        type
+      });
+
+      const response = await axios.post(`${API_URL}/seller/register`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       // Store seller data securely after successful registration
       await secureStorage.setObject('sellerData', {
@@ -129,6 +185,7 @@ export default function RegisterScreen({ navigation }) {
     )
   }
 
+  // Add QR code upload UI in the return statement
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Seller Registration</Text>
@@ -182,6 +239,27 @@ export default function RegisterScreen({ navigation }) {
           Selected Location: {location.address}
         </Text>
       )}
+            <View style={styles.qrCodeSection}>
+        <Text style={styles.sectionTitle}>Payment QR Code *</Text>
+        <TouchableOpacity 
+          style={styles.qrCodeButton} 
+          onPress={pickQRCode}
+          disabled={isLoading}
+        >
+          <Text style={styles.qrCodeButtonText}>
+            {qrCode ? "Change QR Code" : "Upload QR Code"}
+          </Text>
+        </TouchableOpacity>
+        
+        {qrCode && (
+          <Image
+            source={{ uri: qrCode }}
+            style={styles.qrCodePreview}
+            resizeMode="contain"
+          />
+        )}
+      </View>
+      
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -243,6 +321,30 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#007AFF',
-  }
+  },
+  qrCodeSection: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  qrCodeButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  qrCodeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  qrCodePreview: {
+    width: 200,
+    height: 200,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+  },
 });
 

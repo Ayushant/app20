@@ -97,12 +97,23 @@ const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
 const cloudinary = require('../config/cloudinary');
+const upload = multer({ dest: 'uploads/' });
 
 // Register Seller
 exports.registerSeller = async (req, res) => {
-    const { name, email, password, shopName, gstNumber, location } = req.body;
-
     try {
+        const { name, email, password, shopName, gstNumber } = req.body;
+        let location;
+
+        // Parse location if it's a string
+        try {
+            location = typeof req.body.location === 'string' 
+                ? JSON.parse(req.body.location) 
+                : req.body.location;
+        } catch (error) {
+            return res.status(400).json({ message: 'Invalid location format' });
+        }
+
         // Check if seller already exists
         const existingSeller = await Seller.findOne({ email });
         if (existingSeller) {
@@ -114,17 +125,30 @@ exports.registerSeller = async (req, res) => {
             return res.status(400).json({ message: 'Shop location is required' });
         }
 
-        console.log("Loaction :",location)
+        // Check for QR code image
+        if (!req.file) {
+            return res.status(400).json({ message: 'Payment QR code is required' });
+        }
+
+        // Upload QR code to Cloudinary
+        const qrCodeResult = await cloudinary.uploader.upload(req.file.path, {
+            folder: 'seller-qr-codes',
+        });
+
+        // Delete the temporary file
+        fs.unlinkSync(req.file.path);
+
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create new seller with location
+        // Create new seller with QR code URL
         const seller = new Seller({
             name,
             email,
             password: hashedPassword,
             shopName,
             gstNumber,
+            paymentQRCode: qrCodeResult.secure_url,
             location: {
                 type: 'Point',
                 coordinates: location.coordinates,
@@ -145,9 +169,14 @@ exports.registerSeller = async (req, res) => {
             shopName: seller.shopName,
             gstNumber: seller.gstNumber,
             location: seller.location,
+            paymentQRCode: seller.paymentQRCode,
             token
         });
     } catch (err) {
+        // Clean up uploaded file if exists
+        if (req.file) {
+            fs.unlinkSync(req.file.path);
+        }
         console.error('Registration error:', err);
         res.status(500).json({ error: err.message });
     }
