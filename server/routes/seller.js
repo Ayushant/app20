@@ -1,18 +1,6 @@
-// const express = require('express');
-// const { createProfile, uploadProduct, editProduct, getProducts, getOrderNotifications } = require('../controllers/sellerController');
-// // const router = express.Router();
-
-// // router.post('/create-profile', createProfile);
-// // router.post('/upload-product', uploadProduct);
-// // router.put('/edit-product/:id', editProduct);
-// // router.get('/products', getProducts);
-// // router.get('/notifications', getOrderNotifications);
-
-// // module.exports = router;
-
-
-
 const express = require('express');
+const multer = require('multer');
+const { authenticateSeller } = require('../middleware/auth');
 const {
     registerSeller,
     loginSeller,
@@ -28,15 +16,26 @@ const {
     bulkUpload,
     uploadExcel
 } = require('../controllers/sellerController');
-const multer = require('multer');
+
 const router = express.Router();
 
-const { authenticateSeller } = require('../middleware/auth');
+// Configure multer for file uploads
+const upload = multer({ 
+    dest: 'uploads/',
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'));
+        }
+    }
+});
 
-const upload = multer({ dest: 'uploads/products/' });
-
-// Auth routes (no auth required)
-router.post('/register', registerSeller);
+// Public routes
+router.post('/register', upload.single('qrCode'), registerSeller);
 router.post('/login', loginSeller);
 
 // Protected routes (require seller auth)
