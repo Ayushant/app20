@@ -17,6 +17,7 @@
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
     "expo": "~52.0.37",
+    "expo-dev-client": "~5.0.19",
     "expo-image-picker": "^16.0.6",
     "expo-location": "^18.0.8",
     "expo-secure-store": "~14.0.1",

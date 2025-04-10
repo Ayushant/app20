@@ -230,22 +230,10 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.headerButtons}>
                 <TouchableOpacity 
                     style={styles.headerButton}
-                    onPress={() => navigation.navigate('Orders')}
+                    onPress={() => setIsSearching(true)}
                 >
-                    <Ionicons name="document-text-outline" size={24} color="#007AFF" />
-                    <Text style={styles.headerButtonText}>Orders</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={styles.headerButton}
-                    onPress={() => navigation.navigate('Cart')}
-                >
-                    <Ionicons name="cart-outline" size={24} color="#007AFF" />
-                    {cartItems.length > 0 && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>{cartItems.length}</Text>
-                        </View>
-                    )}
+                    <Ionicons name="search" size={24} color="#007AFF" />
+                    <Text style={styles.headerButtonText}>Search</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -270,14 +258,9 @@ const HomeScreen = ({ navigation }) => {
             />
             <View style={styles.productInfo}>
                 <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-                <View style={styles.shopInfoContainer}>
-                    <Text style={styles.shopName} numberOfLines={1}>
-                        {item.sellerId?.shopName || 'Shop Name'}
-                    </Text>
-                    {item.distance && (
-                        <Text style={styles.distance}>{`${item.distance} km away`}</Text>
-                    )}
-                </View>
+                {item.distance && (
+                    <Text style={styles.distance}>{`${item.distance} km away`}</Text>
+                )}
                 <Text style={styles.productPrice}>{`₹${item.price}`}</Text>
                 {!item.isGeneral && (
                     <Text style={styles.prescriptionRequired}>Prescription Required</Text>
@@ -303,21 +286,29 @@ const HomeScreen = ({ navigation }) => {
                 </View>
             ) : (
                 <>
-                    <View style={styles.searchBar}>
-                        <Ionicons name="search" size={20} color="#666" />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Search medicines..."
-                            value={searchQuery}
-                            onChangeText={handleSearch}
-                            onFocus={() => setIsSearching(true)}
-                        />
-                        {searchQuery.length > 0 && (
-                            <TouchableOpacity onPress={clearSearch}>
-                                <Ionicons name="close-circle" size={20} color="#666" />
+                    {isSearching ? (
+                        <View style={styles.searchBar}>
+                            <Ionicons name="search" size={20} color="#666" />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Search medicines..."
+                                value={searchQuery}
+                                onChangeText={handleSearch}
+                                autoFocus={true}
+                            />
+                            {searchQuery.length > 0 && (
+                                <TouchableOpacity onPress={clearSearch}>
+                                    <Ionicons name="close-circle" size={20} color="#666" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity 
+                                style={styles.searchCloseButton}
+                                onPress={() => setIsSearching(false)}
+                            >
+                                <Text style={styles.searchCloseButtonText}>Cancel</Text>
                             </TouchableOpacity>
-                        )}
-                    </View>
+                        </View>
+                    ) : null}
 
                     <FlatList
                         data={filteredProducts}
@@ -356,6 +347,29 @@ const HomeScreen = ({ navigation }) => {
                             </View>
                         )}
                     />
+                    
+                    <View style={styles.bottomNavigation}>
+                        <TouchableOpacity 
+                            style={styles.bottomNavButton}
+                            onPress={() => navigation.navigate('Orders')}
+                        >
+                            <Ionicons name="document-text-outline" size={24} color="#007AFF" />
+                            <Text style={styles.bottomNavButtonText}>Orders</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.bottomNavButton}
+                            onPress={() => navigation.navigate('Cart')}
+                        >
+                            <Ionicons name="cart-outline" size={24} color="#007AFF" />
+                            <Text style={styles.bottomNavButtonText}>Cart</Text>
+                            {cartItems.length > 0 && (
+                                <View style={styles.bottomBadge}>
+                                    <Text style={styles.badgeText}>{cartItems.length}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </>
             )}
         </View>
@@ -425,9 +439,12 @@ const styles = StyleSheet.create({
         color: '#333',
         fontSize: 16,
     },
-    searchPlaceholder: {
+    searchCloseButton: {
         marginLeft: 8,
-        color: '#666',
+        paddingHorizontal: 8,
+    },
+    searchCloseButtonText: {
+        color: '#007AFF',
         fontSize: 16,
     },
     banner: {
@@ -450,7 +467,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
     },
     productCard: {
-        width: (width - 40) / 2,
+        width: (width - 48) / 2,
         marginBottom: 16,
         borderRadius: 8,
         backgroundColor: '#fff',
@@ -465,45 +482,34 @@ const styles = StyleSheet.create({
     },
     productImage: {
         width: '100%',
-        height: 120,
+        height: 100,
         borderTopLeftRadius: 8,
         borderTopRightRadius: 8,
     },
     productInfo: {
-        padding: 12,
+        padding: 8,
     },
     productName: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
         marginBottom: 4,
-    },
-    shopInfoContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 4,
-    },
-    shopName: {
-        fontSize: 14,
-        color: '#666',
-        flex: 1,
-        marginRight: 8,
     },
     distance: {
         fontSize: 12,
         color: '#007AFF',
         fontWeight: '500',
+        marginBottom: 4,
     },
     productPrice: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: 'bold',
         color: '#007AFF',
         marginBottom: 4,
     },
     prescriptionRequired: {
-        fontSize: 12,
+        fontSize: 10,
         color: '#ff3b30',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     authButtons: {
         flexDirection: 'row',
@@ -540,13 +546,13 @@ const styles = StyleSheet.create({
     },
     addToCartButton: {
         backgroundColor: '#007AFF',
-        padding: 8,
+        padding: 6,
         borderRadius: 4,
         alignItems: 'center',
     },
     addToCartButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
     },
     headerButtons: {
@@ -603,6 +609,36 @@ const styles = StyleSheet.create({
     emptySubtext: {
         fontSize: 14,
         color: '#666',
+    },
+    bottomNavigation: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        paddingVertical: 10,
+        paddingBottom: 20, // Extra padding for bottom safe area
+    },
+    bottomNavButton: {
+        alignItems: 'center',
+        position: 'relative',
+    },
+    bottomNavButtonText: {
+        fontSize: 12,
+        color: '#007AFF',
+        marginTop: 4,
+    },
+    bottomBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -8,
+        backgroundColor: 'red',
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 

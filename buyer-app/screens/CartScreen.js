@@ -21,7 +21,7 @@ import axios from 'axios';
 import { API_URL } from '../config/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateQuantity, clearCart } from '../store/slices/cartSlice';
-
+import secureStorage from '../config/secureStorage';
 // API_URL='http://172.31.41.234:8000/api/'
 
 // Remove this line
@@ -35,9 +35,8 @@ const AddressModal = ({ visible, onClose, onSubmit }) => {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const userDataString = await AsyncStorage.getItem('userData');
-        if (userDataString) {
-          const data = JSON.parse(userDataString);
+        const data = await secureStorage.getObject('userData');
+        if (data) {
           setUserData(data);
           // Auto-fill name and address from user data
           setName(data.user?.name || '');
@@ -155,8 +154,8 @@ const CartScreen = ({ navigation }) => {
 
   const handleCheckout = async () => {
     try {
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (!userDataString) {
+      const userData = await secureStorage.getObject('userData');
+      if (!userData) {
         navigation.replace('Auth', { returnScreen: 'Cart' });
         return;
       }
@@ -183,8 +182,12 @@ const CartScreen = ({ navigation }) => {
       setLoading(true);
       setShowAddressModal(false);
 
-      const userDataString = await AsyncStorage.getItem('userData');
-      const userData = JSON.parse(userDataString);
+      // Get user data from secureStorage instead of AsyncStorage
+      const userData = await secureStorage.getObject('userData');
+      if (!userData || !userData.token) {
+        navigation.replace('Auth', { returnScreen: 'Cart' });
+        return;
+      }
 
       // Create form data for order
       const formData = new FormData();
@@ -197,9 +200,9 @@ const CartScreen = ({ navigation }) => {
       formData.append('platformFee', platformFee.toString());
       formData.append('address', address);
       formData.append('name', name);
-      formData.append('contactNumber', userData.phoneNumber);
+      formData.append('contactNumber', userData.user.phoneNumber); // Access phoneNumber from user object
 
-      // Only append prescription if any item requires it
+      // Only append prescription if any item requires it and prescription exists
       if (prescription && cartItems.some(item => !item.isGeneral)) {
         const prescriptionFile = {
           uri: prescription,
@@ -233,12 +236,16 @@ const CartScreen = ({ navigation }) => {
         ]
       );
     } catch (error) {
-      console.error('Order placement error:', error);
-      Alert.alert('Error', 'Failed to place order');
+      console.error('Order placement error:', error.response?.data || error);
+      if (error.response?.status === 401) {
+        navigation.replace('Auth', { returnScreen: 'Cart' });
+      } else {
+        Alert.alert('Error', 'Failed to place order. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+};
 
   const renderEmptyCart = () => (
     <View style={styles.emptyCartContainer}>
@@ -271,7 +278,7 @@ const CartScreen = ({ navigation }) => {
                   />
                   <View style={styles.itemDetails}>
                     <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemPrice}>₹{item.price}</Text>
+                    <Text style={styles.itemPrice}>{`₹${item.price}`}</Text>
                     <View style={styles.quantityControl}>
                       <TouchableOpacity onPress={() => updateItemQuantity(item._id, -1)}>
                         <Text style={styles.quantityButton}>-</Text>
@@ -310,20 +317,20 @@ const CartScreen = ({ navigation }) => {
               <View style={styles.summary}>
                 <View style={styles.summaryRow}>
                   <Text>Price</Text>
-                  <Text>₹{totalPrice}</Text>
+                  <Text>{`₹${totalPrice}`}</Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text>Delivery Charge</Text>
-                  <Text>₹{deliveryCharge}</Text>
+                  <Text>{`₹${deliveryCharge}`}</Text>
                 </View>
                 <View style={styles.summaryRow}>
                   <Text>Platform fee</Text>
-                  <Text>₹{platformFee}</Text>
+                  <Text>{`₹${platformFee}`}</Text>
                 </View>
                 <View style={[styles.summaryRow, styles.totalRow]}>
                   <Text style={styles.totalText}>Total</Text>
                   <Text style={styles.totalAmount}>
-                    ₹{totalPrice + deliveryCharge + platformFee}
+                    {`₹${totalPrice + deliveryCharge + platformFee}`}
                   </Text>
                 </View>
               </View>

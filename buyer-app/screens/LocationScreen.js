@@ -82,7 +82,8 @@ const LocationScreen = ({ navigation, route }) => {
         return;
       }
 
-      const { token } = JSON.parse(userData);
+      // Remove JSON.parse since userData is already an object
+      const { token } = userData;
       
       // Format the complete address
       const formattedAddress = `${houseNumber ? houseNumber + ', ' : ''}${streetName}${landmark ? ', Near ' + landmark : ''}`;
@@ -105,7 +106,7 @@ const LocationScreen = ({ navigation, route }) => {
         }
       );
 
-      // Update stored user data
+      // Update stored user data without parsing
       const updatedUserData = { ...userData, address: formattedAddress, location: locationData.location };
       await secureStorage.setObject('userData', updatedUserData);
 

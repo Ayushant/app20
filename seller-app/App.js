@@ -8,6 +8,22 @@ import UploadProductScreen from './screens/UploadProductScreen.js';
 import ProductListScreen from './screens/ProductListScreen.js';
 import AddEditProductScreen from './screens/AddEditProductScreen.js';
 import OrdersScreen from './screens/OrdersScreen.js';
+// Remove these lines
+import FastImage from 'react-native-fast-image'
+
+// Remove the preload section
+// Preload important images
+// FastImage.preload([
+//   {
+//     uri: 'image_url_1',
+//     priority: FastImage.priority.high,
+//   },
+//   {
+//     uri: 'image_url_2',
+//     priority: FastImage.priority.normal,
+//   },
+// ])
+
 const Stack = createStackNavigator();
 
 export default function App() {

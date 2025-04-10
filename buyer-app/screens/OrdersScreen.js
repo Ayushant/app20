@@ -12,7 +12,7 @@ import {
   Modal,
   Dimensions
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,8 +99,8 @@ const OrdersScreen = ({ navigation }) => {
   const renderPrescriptionImage = (prescription) => {
     if (!prescription) return null;
   
-    const prescriptionPath = prescription.replace('uploads/', '');
-    const imageUrl = `${API_URL}/uploads/prescriptions/${prescriptionPath}`;
+    // Use the Cloudinary URL directly since it's stored as a complete URL
+    const imageUrl = prescription;
   
     return (
       <TouchableOpacity
@@ -184,7 +184,7 @@ const OrdersScreen = ({ navigation }) => {
           <Text style={styles.productName}>{product.productId.name}</Text>
           <View style={styles.productDetails}>
             <Text style={styles.productQuantity}>Qty: {product.quantity}</Text>
-            <Text style={styles.productPrice}>₹{product.productId.price * product.quantity}</Text>
+            <Text style={styles.productPrice}>{`₹${product.productId.price * product.quantity}`}</Text>
           </View>
           {product.requiresPrescription && (
             <Text style={styles.prescriptionRequired}>Prescription Required</Text>
@@ -199,7 +199,7 @@ const OrdersScreen = ({ navigation }) => {
       <View style={styles.orderFooter}>
         <View style={styles.orderDetails}>
           <Text style={styles.address}>Delivery to: {item.address}</Text>
-          <Text style={styles.total}>Total: ₹{item.totalPrice}</Text>
+          <Text style={styles.total}>{`Total: ₹${item.totalPrice}`}</Text>
         </View>
         
         <View style={[styles.deliveryStatusBadge, { backgroundColor: getDeliveryStatusColor(item.deliveryStatus) + '20' }]}>

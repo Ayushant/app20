@@ -48,12 +48,18 @@ export default function AuthScreen({ navigation, route }) {
         }
     };
 
+    // Update the error handling in handleConfirmPhone
     const handleConfirmPhone = async () => {
         if (phoneNumber !== confirmPhoneNumber) {
             Alert.alert('Error', 'Phone numbers do not match');
             return;
         }
-
+    
+        if (!isExistingUser && !name.trim()) {
+            Alert.alert('Error', 'Please enter your name');
+            return;
+        }
+    
         try {
             setLoading(true);
             const formattedPhone = '+91' + phoneNumber;
@@ -63,7 +69,7 @@ export default function AuthScreen({ navigation, route }) {
                 confirmPhoneNumber: '+91' + confirmPhoneNumber,
                 name: !isExistingUser ? name : undefined
             });
-
+    
             await secureStorage.setObject('userData', response.data);
             
             if (route.params?.returnScreen) {
@@ -74,8 +80,11 @@ export default function AuthScreen({ navigation, route }) {
                 navigation.replace('Home');
             }
         } catch (error) {
-            console.error('Error:', error);
-            Alert.alert('Error', isExistingUser ? 'Verification failed' : 'Registration failed');
+            console.error('Error:', error.response?.data || error);
+            Alert.alert(
+                'Error',
+                error.response?.data?.error || 'Registration failed. Please try again.'
+            );
         } finally {
             setLoading(false);
         }

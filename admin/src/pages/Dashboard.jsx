@@ -241,7 +241,7 @@ export default function Dashboard() {
                   <p className="mt-2">Total Amount: ₹{order.totalPrice}</p>
                   <p>Order Date: {new Date(order.orderDate).toLocaleDateString()}</p>
                 </div> */}
-              <div className="mt-4 flex justify-end">
+               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => handleMarkOrderDone(order.orderId)}
                   className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
