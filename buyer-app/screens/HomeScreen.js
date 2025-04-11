@@ -189,7 +189,7 @@ const HomeScreen = ({ navigation }) => {
         }
 
         dispatch(addToCart(product));
-        Alert.alert('Success', 'Item added to cart');
+        // Alert.alert('Success', 'Item added to cart');
     };
 
     const handleSearch = (text) => {

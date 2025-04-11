@@ -20,56 +20,43 @@ export default function AuthScreen({ navigation, route }) {
     const [name, setName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [confirmPhoneNumber, setConfirmPhoneNumber] = useState('');
-    const [verificationStep, setVerificationStep] = useState(1); // 1: initial, 2: confirm
-    const [isExistingUser, setIsExistingUser] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    const handleVerifyPhone = async () => {
+    const handleSubmit = async () => {
+        // Validate inputs
         if (!phoneNumber || phoneNumber.length !== 10) {
             Alert.alert('Error', 'Please enter a valid 10-digit phone number');
             return;
         }
 
-        try {
-            setLoading(true);
-            const formattedPhone = '+91' + phoneNumber;
-            
-            const response = await axios.post(`${API_URL}/buyer/verify-phone`, {
-                phoneNumber: formattedPhone
-            });
-
-            setIsExistingUser(response.data.isExistingUser);
-            setVerificationStep(2);
-        } catch (error) {
-            console.error('Error:', error);
-            Alert.alert('Error', 'Failed to verify phone number. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Update the error handling in handleConfirmPhone
-    const handleConfirmPhone = async () => {
         if (phoneNumber !== confirmPhoneNumber) {
             Alert.alert('Error', 'Phone numbers do not match');
             return;
         }
-    
-        if (!isExistingUser && !name.trim()) {
-            Alert.alert('Error', 'Please enter your name');
-            return;
-        }
-    
+
         try {
             setLoading(true);
             const formattedPhone = '+91' + phoneNumber;
             
+            // First verify if user exists
+            const verifyResponse = await axios.post(`${API_URL}/buyer/verify-phone`, {
+                phoneNumber: formattedPhone
+            });
+
+            const isExistingUser = verifyResponse.data.isExistingUser;
+
+            if (!isExistingUser && !name.trim()) {
+                Alert.alert('Error', 'Please enter your name');
+                return;
+            }
+
+            // Proceed with confirmation
             const response = await axios.post(`${API_URL}/buyer/confirm-phone`, {
                 phoneNumber: formattedPhone,
                 confirmPhoneNumber: '+91' + confirmPhoneNumber,
                 name: !isExistingUser ? name : undefined
             });
-    
+
             await secureStorage.setObject('userData', response.data);
             
             if (route.params?.returnScreen) {
@@ -83,7 +70,7 @@ export default function AuthScreen({ navigation, route }) {
             console.error('Error:', error.response?.data || error);
             Alert.alert(
                 'Error',
-                error.response?.data?.error || 'Registration failed. Please try again.'
+                error.response?.data?.error || 'Authentication failed. Please try again.'
             );
         } finally {
             setLoading(false);
@@ -99,67 +86,48 @@ export default function AuthScreen({ navigation, route }) {
                 <View style={styles.innerContainer}>
                     <Text style={styles.title}>Welcome to FairPlace-Med</Text>
                     
-                    {verificationStep === 1 ? (
-                        <>
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.prefix}>+91</Text>
-                                <TextInput
-                                    style={[styles.phoneInput]}
-                                    placeholder="Phone Number"
-                                    value={phoneNumber}
-                                    onChangeText={setPhoneNumber}
-                                    keyboardType="phone-pad"
-                                    maxLength={10}
-                                />
-                            </View>
-                            <TouchableOpacity
-                                style={[styles.button, loading && styles.disabledButton]}
-                                onPress={handleVerifyPhone}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.buttonText}>Continue</Text>
-                                )}
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            {!isExistingUser && (
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Your Name"
-                                    value={name}
-                                    onChangeText={setName}
-                                />
-                            )}
-                            <View style={styles.inputContainer}>
-                                <Text style={styles.prefix}>+91</Text>
-                                <TextInput
-                                    style={[styles.phoneInput]}
-                                    placeholder="Confirm Phone Number"
-                                    value={confirmPhoneNumber}
-                                    onChangeText={setConfirmPhoneNumber}
-                                    keyboardType="phone-pad"
-                                    maxLength={10}
-                                />
-                            </View>
-                            <TouchableOpacity
-                                style={[styles.button, loading && styles.disabledButton]}
-                                onPress={handleConfirmPhone}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.buttonText}>
-                                        {isExistingUser ? 'Login' : 'Register'}
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
-                        </>
-                    )}
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Your Name"
+                        value={name}
+                        onChangeText={setName}
+                    />
+                    
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.prefix}>+91</Text>
+                        <TextInput
+                            style={[styles.phoneInput]}
+                            placeholder="Phone Number"
+                            value={phoneNumber}
+                            onChangeText={setPhoneNumber}
+                            keyboardType="phone-pad"
+                            maxLength={10}
+                        />
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.prefix}>+91</Text>
+                        <TextInput
+                            style={[styles.phoneInput]}
+                            placeholder="Confirm Phone Number"
+                            value={confirmPhoneNumber}
+                            onChangeText={setConfirmPhoneNumber}
+                            keyboardType="phone-pad"
+                            maxLength={10}
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.button, loading && styles.disabledButton]}
+                        onPress={handleSubmit}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Continue</Text>
+                        )}
+                    </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
@@ -194,9 +162,10 @@ const styles = StyleSheet.create({
     prefix: {
         fontSize: 16,
         marginRight: 10,
+        width: 40,
     },
     input: {
-        width: '80%',
+        width: '90%',
         height: 50,
         borderWidth: 1,
         borderColor: '#ddd',
@@ -217,9 +186,10 @@ const styles = StyleSheet.create({
     button: {
         backgroundColor: '#34C759',
         padding: 15,
-        borderRadius: 10,
+        borderRadius: 25,  // Made more rounded
         alignItems: 'center',
-        width: '80%',
+        width: '90%',      // Made wider to match inputs
+        marginTop: 10,
     },
     disabledButton: {
         backgroundColor: '#ccc',

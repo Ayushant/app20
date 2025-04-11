@@ -226,8 +226,8 @@ const CartScreen = ({ navigation }) => {
       dispatch(clearCart());
 
       Alert.alert(
-        'Success',
-        'Order placed successfully',
+        // 'Success',
+        // 'Order placed successfully',
         [
           {
             text: 'View Orders',
