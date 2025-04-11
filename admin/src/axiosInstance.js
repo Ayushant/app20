@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: 'http://13.201.116.90:3000/api/admin',
+  baseURL: 'http://35.154.206.37:3000/api/admin',
 });
 
 axiosInstance.interceptors.request.use((config) => {

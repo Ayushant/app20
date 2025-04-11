@@ -1,5 +1,5 @@
 // Base API URL for development and production
-export const API_URL = 'http://13.201.116.90:3000/api';
+export const API_URL = 'http://35.154.206.37:3000/api';
 
 // You can add more API-related configurations here
 // For example:
